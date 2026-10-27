@@ -1,5 +1,7 @@
 name: PATCHED - Publicar GitHub Pages (manual)
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,7 +22,17 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
+      - name: Verificar configuración del catálogo
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          if [ -z "$TMDB_API_KEY" ]; then
+            echo "::error::Configura el secret TMDB_API_KEY del repositorio para publicar el catálogo automático."
+            exit 1
+          fi
       - name: Compilar con base GitHub Pages
+        env:
+          VITE_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
           if [[ "$REPOSITORY_NAME" == "${GITHUB_REPOSITORY_OWNER}.github.io" ]]; then
