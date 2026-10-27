@@ -1,11 +1,12 @@
 import { API_BASE, IMG_BASE, requests } from '../data/requests.js'
 
-// Never hardcode personal API credentials into a public static site.
-// Enter a TMDB key once in Configuración; browser-local storage retains it.
-let tmdbApiKey = ''
+// The catalogue key can be supplied during the GitHub Pages build.
+// It is a browser-side key and can be inspected in network requests.
+export const defaultTmdbApiKey = String(import.meta.env.VITE_TMDB_API_KEY || '').trim()
+let tmdbApiKey = defaultTmdbApiKey
 
 export const setTmdbApiKey = (value) => {
-  tmdbApiKey = String(value || '').trim()
+  tmdbApiKey = String(value || '').trim() || defaultTmdbApiKey
 }
 
 export const getTmdbApiKey = () => tmdbApiKey
