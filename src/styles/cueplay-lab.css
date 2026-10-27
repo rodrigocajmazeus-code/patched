@@ -1,0 +1,64 @@
+/* CUEPLAY_LAB_PATCH: UI original inspirada en patrones de usabilidad analizados. */
+@media (min-width: 900px) {
+  .cue-floating-header {
+    top: 10px !important;
+    left: 18px !important;
+    right: 18px !important;
+    width: min(calc(100% - 36px), 1320px);
+    margin-inline: auto;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.16);
+    background: rgba(13,14,21,.90) !important;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+    backdrop-filter: blur(18px);
+  }
+  .cue-floating-header nav {padding-top: .62rem; padding-bottom: .62rem;}
+}
+.cue-catalog-card {transition: transform .25s ease, filter .25s ease;}
+.cue-catalog-card:hover {filter: brightness(1.08);}
+.cue-player-audit {
+  width: min(100% - 2rem, 1510px); margin: 12px auto 0;
+  display: flex; gap: 18px; align-items: center; justify-content: space-between;
+  border: 1px solid #343a47; border-radius: 14px;
+  background: #141a23; padding: 14px 16px; color: #f3f3f4;
+}
+.cue-audit-left {display:flex;flex:1;flex-direction:column;gap:4px;min-width:180px;font-size:13px}
+.cue-audit-left strong{font-size:13px}
+.cue-status-line{color:#d0d9e4;line-height:1.4}
+.cue-status-positive{color:#76edbd}
+.cue-audit-left small{color:#8d9aae;font-size:11px}
+.cue-audit-actions{display:flex;gap:7px;flex-wrap:wrap}
+.cue-audit-actions button{padding:9px 11px;border:1px solid #425166;border-radius:9px;background:#263142;font-size:12px;font-weight:650;color:white;cursor:pointer}
+.cue-audit-actions button:hover{background:#38475d}
+.cue-audit-actions .cue-audit-good{border-color:#276b58;background:#153d36}
+.cue-audit-actions .cue-audit-bad{border-color:#79464b;background:#402529}
+.cue-audit-actions button[aria-pressed="true"]{outline:2px solid #fff;outline-offset:2px}
+.cue-mobile-dock{display:none}
+@media (max-width: 639px) {
+  body{padding-bottom:78px}
+  .cue-floating-header{background:rgba(10,10,12,.85)!important;backdrop-filter:blur(15px)}
+  .cue-floating-header nav{padding-top:8px;padding-bottom:8px}
+  .cue-adapt-hero{
+    width:calc(100% - 26px)!important;min-height:535px!important;height:535px!important;
+    margin:75px auto 0!important;border-radius:23px;overflow:hidden;
+    box-shadow:0 12px 36px #0009;
+  }
+  .cue-adapt-hero .cue-hero-content{min-height:535px!important;padding:20px 18px 23px!important}
+  .cue-adapt-hero .hero-gradient{background:linear-gradient(to top,rgba(0,0,0,.97),rgba(0,0,0,.44) 39%,rgba(0,0,0,.02) 77%)!important}
+  .cue-hero-title{font-size:clamp(32px,9vw,48px)!important;line-height:1.04!important;letter-spacing:-.025em}
+  .cue-adapt-hero .animate-slide-up{max-width:100%}
+  .cue-adapt-hero button{padding-left:16px;padding-right:16px}
+  .cue-catalog-card{width:148px!important}
+  .cue-catalog-card .min-h-\[68px\]{min-height:75px}
+  .cue-mobile-dock{
+    display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;z-index:60;
+    height:74px;padding:7px max(6px, env(safe-area-inset-left)) calc(7px + env(safe-area-inset-bottom));
+    background:#0c0d11f7;border-top:1px solid #ffffff20;backdrop-filter:blur(20px);
+  }
+  .cue-dock-item{display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;color:#949ba5;border-radius:12px;font-size:10px;font-weight:650;text-decoration:none}
+  .cue-dock-item.cue-dock-active{color:#f5f5f5;background:#242932}
+  .cue-player-audit{width:calc(100% - 20px);display:block;margin-top:8px;padding:12px}
+  .cue-audit-actions{margin-top:12px;display:grid;grid-template-columns:1fr 1fr}
+  .cue-audit-actions button:last-child{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:reduce){.cue-catalog-card{transition:none}}

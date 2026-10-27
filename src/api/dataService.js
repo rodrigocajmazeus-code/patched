@@ -1,0 +1,296 @@
+import { api, hasApiKey } from './tmdb.js'
+import { requests } from '../data/requests.js'
+import { normalizeMedia, sortByPopularity, uniqueByKey } from '../data/media.js'
+import { countryName } from '../data/countries.js'
+import { buildCatalogRequests, catalogHasMore, mergeCatalogItems } from './catalogQuery.js'
+import {
+  getMockMedia,
+  mockSearch,
+  mockGenres,
+  mockVideos,
+  mockRow,
+} from '../data/mock.js'
+
+export const isLive = () => hasApiKey()
+
+const today = () => new Date().toISOString().slice(0, 10)
+const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)
+
+export async function getTrending(mediaType, country) {
+  if (!hasApiKey()) return mediaType ? getMockMedia().filter((m) => m.mediaType === mediaType) : getMockMedia()
+  if (country) return getCountryTrending(country, mediaType)
+  const raw = await api.list(mediaType ? `/trending/${mediaType}/week` : requests.trending)
+  return uniqueByKey(raw.map((r) => normalizeMedia(r, mediaType)))
+}
+
+// Discover content produced in a country (TMDB `with_origin_country`),
+// sorted by popularity — the closest country equivalent of "trending".
+async function getCountryTrending(country, mediaType) {
+  const types = mediaType ? [mediaType] : ['movie', 'tv']
+  const lists = await Promise.all(
+    types.map((type) =>
+      api.list(`/discover/${type}`, {
+        with_origin_country: country,
+        sort_by: 'popularity.desc',
+        include_adult: false,
+      })
+    )
+  )
+  const all = lists.flatMap((raw, i) => raw.map((r) => normalizeMedia(r, types[i])))
+  return sortByPopularity(uniqueByKey(all))
+}
+
+async function discoverMedia(mediaType, country, params) {
+  if (!hasApiKey()) return getMockMedia().filter((m) => m.mediaType === mediaType)
+  const raw = await api.list(`/discover/${mediaType}`, {
+    with_origin_country: country,
+    include_adult: false,
+    ...params,
+  })
+  return raw.map((r) => normalizeMedia(r, mediaType))
+}
+
+// Rows for the home page: [label, requestPath]
+export const ROW_SOURCES = [
+  { label: 'Trending Now', fetch: () => getTrending() },
+  { label: 'Popular Movies', path: requests.popularMovies },
+  { label: 'Top Rated', path: requests.topRatedMovies },
+  { label: 'Popular Series', path: requests.popularTv },
+  { label: 'Now Playing', path: requests.nowPlaying },
+]
+
+// Country-filtered variants replace the global rows entirely when a
+// country is selected (trending can't be region-filtered on TMDB).
+export function getRowSources(country) {
+  if (!country) return ROW_SOURCES
+  const name = countryName(country)
+  return [
+    { label: `Popular in ${name}`, fetch: () => getCountryTrending(country) },
+    { label: `Popular Movies from ${name}`, fetch: () => discoverMedia('movie', country, { sort_by: 'popularity.desc' }) },
+    { label: `Top Rated Movies from ${name}`, fetch: () => discoverMedia('movie', country, { sort_by: 'vote_average.desc', 'vote_count.gte': 200 }) },
+    { label: `Popular Series from ${name}`, fetch: () => discoverMedia('tv', country, { sort_by: 'popularity.desc' }) },
+    { label: `Top Rated Series from ${name}`, fetch: () => discoverMedia('tv', country, { sort_by: 'vote_average.desc', 'vote_count.gte': 100 }) },
+  ]
+}
+
+export async function getRow({ label, path, fetch: customFetch }) {
+  if (customFetch) return customFetch()
+  if (!hasApiKey()) return mockRow(label)
+  const raw = await api.list(path)
+  return raw.map((r) => normalizeMedia(r, path.includes('/tv') ? 'tv' : 'movie'))
+}
+
+export const MOVIES_ROW_SOURCES = [
+  { label: 'Trending Films', fetch: () => getTrending('movie') },
+  { label: 'Popular Movies', path: requests.popularMovies },
+  { label: 'Top Rated', path: requests.topRatedMovies },
+  { label: 'Now Playing', path: requests.nowPlaying },
+]
+
+export function getMoviesRowSources(country) {
+  if (!country) return MOVIES_ROW_SOURCES
+  const name = countryName(country)
+  return [
+    { label: `Popular Movies from ${name}`, fetch: () => discoverMedia('movie', country, { sort_by: 'popularity.desc' }) },
+    { label: `Top Rated Movies from ${name}`, fetch: () => discoverMedia('movie', country, { sort_by: 'vote_average.desc', 'vote_count.gte': 200 }) },
+    { label: `New Movies from ${name}`, fetch: () => discoverMedia('movie', country, { 'primary_release_date.lte': today(), 'primary_release_date.gte': daysAgo(365), sort_by: 'popularity.desc' }) },
+  ]
+}
+
+export const SERIES_ROW_SOURCES = [
+  { label: 'Trending Series', fetch: () => getTrending('tv') },
+  { label: 'Popular Series', path: requests.popularTv },
+  { label: 'Top Rated Series', path: requests.topRatedTv },
+]
+
+export function getSeriesRowSources(country) {
+  if (!country) return SERIES_ROW_SOURCES
+  const name = countryName(country)
+  return [
+    { label: `Popular Series from ${name}`, fetch: () => discoverMedia('tv', country, { sort_by: 'popularity.desc' }) },
+    { label: `Top Rated Series from ${name}`, fetch: () => discoverMedia('tv', country, { sort_by: 'vote_average.desc', 'vote_count.gte': 100 }) },
+    { label: `New Series from ${name}`, fetch: () => discoverMedia('tv', country, { 'first_air_date.lte': today(), 'first_air_date.gte': daysAgo(365), sort_by: 'popularity.desc' }) },
+  ]
+}
+
+export async function getGenres() {
+  if (!hasApiKey()) return mockGenres()
+  return api.genres()
+}
+
+export async function getDiscoverByGenre(genreId, page = 1) {
+  if (!hasApiKey()) return getMockMedia().slice(0, 12)
+  const raw = await api.list(requests.discover, {
+    with_genres: genreId,
+    sort_by: 'popularity.desc',
+    page,
+    include_adult: false,
+  })
+  return raw.map((r) => normalizeMedia(r, 'movie'))
+}
+
+export async function getGenreTitles(genreId, page = 1) {
+  if (!hasApiKey()) return getMockMedia().slice(0, 12)
+  const [movies, shows] = await Promise.all([
+    api.list(requests.discover, {
+      with_genres: genreId,
+      sort_by: 'popularity.desc',
+      page,
+    }),
+    api.list('/discover/tv', {
+      with_genres: genreId,
+      sort_by: 'popularity.desc',
+      page,
+    }),
+  ])
+  const all = [...movies.map((m) => normalizeMedia(m, 'movie')), ...shows.map((s) => normalizeMedia(s, 'tv'))]
+  return sortByPopularity(uniqueByKey(all))
+}
+
+export async function searchMedia(query, page = 1) {
+  if (!hasApiKey()) return mockSearch(query)
+  const [movies, shows] = await Promise.all([
+    api.list(requests.searchMovie, { query, page, include_adult: false }, { includeUnrated: true }),
+    api.list(requests.searchTv, { query, page, include_adult: false }, { includeUnrated: true }),
+  ])
+  const all = [...movies.map((m) => normalizeMedia(m, 'movie')), ...shows.map((s) => normalizeMedia(s, 'tv'))]
+  return sortByPopularity(uniqueByKey(all))
+}
+
+export async function getVideo(mediaType, id) {
+  if (!hasApiKey()) return mockVideos()
+  return api.videos(mediaType, id)
+}
+
+export async function getDetails(mediaType, id) {
+  if (!hasApiKey()) return getMockMedia().find((m) => String(m.id) === String(id)) || null
+  const raw = await api.detail(mediaType, id)
+  return normalizeMedia(raw, mediaType)
+}
+
+export async function getBackdrops(mediaType, id, limit = 5) {
+  if (!hasApiKey()) return []
+  const images = await api.images(mediaType, id).catch(() => ({ backdrops: [] }))
+  return (images.backdrops || [])
+    .filter((image) => image.file_path)
+    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
+    .slice(0, limit)
+    .map((image) => image.file_path)
+}
+
+export async function getRelated(mediaType, id, limit = 12) {
+  if (!hasApiKey()) {
+    const current = getMockMedia().find((media) => String(media.id) === String(id))
+    return getMockMedia()
+      .filter((media) => media.key !== current?.key)
+      .sort((a, b) => {
+        const aMatches = a.genreIds.filter((genre) => current?.genreIds.includes(genre)).length
+        const bMatches = b.genreIds.filter((genre) => current?.genreIds.includes(genre)).length
+        return bMatches - aMatches || b.popularity - a.popularity
+      })
+      .slice(0, limit)
+  }
+
+  let raw = await api.list(`/${mediaType}/${id}/recommendations`)
+  if (!raw.length) raw = await api.list(`/${mediaType}/${id}/similar`)
+  return raw.slice(0, limit).map((item) => normalizeMedia(item, mediaType))
+}
+
+export async function getSeasonEpisodes(id, seasonNumber) {
+  if (!hasApiKey()) return []
+
+  const season = await api.season(id, seasonNumber)
+  return (season.episodes || []).map((episode) => ({
+    id: episode.id,
+    number: episode.episode_number,
+    season: episode.season_number,
+    title: episode.name || `Episode ${episode.episode_number}`,
+    overview: episode.overview || '',
+    still: episode.still_path || null,
+    airDate: episode.air_date || '',
+    runtime: episode.runtime || null,
+  }))
+}
+
+export async function getCast(mediaType, id, limit = 20) {
+  if (!hasApiKey()) return []
+  const credits = await api.credits(mediaType, id).catch(() => ({ cast: [] }))
+  return (credits.cast || [])
+    .slice(0, limit)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      character: p.character || '',
+      profile: p.profile_path || null,
+    }))
+}
+
+export async function getNewReleases(mediaType, limit = 20) {
+  if (!hasApiKey()) return getMockMedia().slice(0, limit)
+  const path = mediaType === 'tv' ? '/discover/tv' : requests.discover
+  const raw = await api.list(path, {
+    sort_by: 'primary_release_date.desc',
+    'primary_release_date.lte': new Date().toISOString().slice(0, 10),
+    page: 1,
+    include_adult: false,
+    ...(mediaType === 'tv' ? { 'first_air_date.lte': new Date().toISOString().slice(0, 10) } : {}),
+  })
+  return raw.slice(0, limit).map((r) => normalizeMedia(r, mediaType))
+}
+
+export async function getRecommendationsForHistory(historyItems, limit = 20) {
+  if (!historyItems?.length) return []
+  const recent = historyItems.find((h) => h.mediaType === 'tv') || historyItems.find((h) => h.mediaType === 'movie') || historyItems[0]
+  if (!recent) return []
+  try {
+    return await getRelated(recent.mediaType, recent.id, limit)
+  } catch {
+    return []
+  }
+}
+
+// El anime es una categoría editorial dentro de películas/TV de TMDB, no un
+// mediaType nuevo para los reproductores. En búsquedas extensas, la combinación
+// animación + idioma original japonés es un filtro práctico, no una garantía
+// de clasificación cultural para todos los títulos.
+export async function getAnimeList(mediaType, sortBy = 'popularity.desc') {
+  if (!['tv', 'movie'].includes(mediaType)) throw new TypeError('Tipo de anime inválido')
+  if (!hasApiKey()) return getMockMedia().filter(m => m.isAnime && m.mediaType === mediaType)
+  const raw = await api.list(`/discover/${mediaType}`, {
+    with_genres: 16,
+    with_original_language: 'ja',
+    sort_by: sortBy,
+    include_adult: false,
+    ...(sortBy === 'vote_average.desc' ? { 'vote_count.gte': 100 } : {}),
+  })
+  return raw.map(item => normalizeMedia(item, mediaType))
+}
+
+export const ANIME_ROW_SOURCES = Object.freeze([
+  { label: 'Anime: series populares', fetch: () => getAnimeList('tv') },
+  { label: 'Anime: películas japonesas', fetch: () => getAnimeList('movie') },
+  { label: 'Anime: series mejor valoradas', fetch: () => getAnimeList('tv', 'vote_average.desc') },
+])
+
+// Paged discovery adds catalogue depth without indexing a huge library on a
+// lightweight machine. TMDB metadata != a confirmed external playback source.
+export async function getCatalogPage({ section, kind = 'all', sort = 'popular', period = 'all', page = 1, country = '' }) {
+  const queries = buildCatalogRequests({ section, kind, sort, period, page, country })
+  if (!hasApiKey()) {
+    const all = getMockMedia().filter(item =>
+      section === 'anime' ? item.isAnime && (kind === 'all' || item.mediaType === kind)
+        : item.mediaType === (section === 'series' ? 'tv' : 'movie') && !item.isAnime
+    )
+    return { items: page === 1 ? all : [], hasMore: false }
+  }
+  const responses = await Promise.all(queries.map(query => api.page(query.path, query.params)))
+  let items = mergeCatalogItems([], responses.flatMap((response, i) =>
+    response.results.map(item => normalizeMedia(item, queries[i].mediaType))
+  ))
+  // Anime is classified by genre and original language, not by player type.
+  items = items.filter(item => section === 'anime' ? item.isAnime : !item.isAnime)
+  if (sort === 'rating') items.sort((a, b) => b.rating - a.rating || b.votes - a.votes)
+  else if (sort === 'recent') items.sort((a, b) => b.date.localeCompare(a.date))
+  else items = sortByPopularity(items)
+  return { items, hasMore: catalogHasMore(responses, page) }
+}

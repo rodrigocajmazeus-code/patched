@@ -1,0 +1,39 @@
+name: PATCHED - Publicar GitHub Pages (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - name: Compilar con base GitHub Pages
+        run: |
+          REPOSITORY_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ "$REPOSITORY_NAME" == "${GITHUB_REPOSITORY_OWNER}.github.io" ]]; then
+            export PATCHED_BASE_PATH="/"
+          else
+            export PATCHED_BASE_PATH="/$REPOSITORY_NAME/"
+          fi
+          echo "Compilando con base: $PATCHED_BASE_PATH"
+          npm run build
+          # Routes React Router must continue working when revisited directly.
+          cp dist/index.html dist/404.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - uses: actions/deploy-pages@v4

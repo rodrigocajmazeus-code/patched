@@ -1,0 +1,3 @@
+import { NavLink } from 'react-router-dom'
+const categories=[{to:'/movies',number:'01',title:'Películas',detail:'Una historia, de principio a fin.'},{to:'/series',number:'02',title:'Series',detail:'Siempre hay un capítulo más.'},{to:'/anime',number:'03',title:'Anime',detail:'Universos que merecen explorarse.'}]
+export default function CategoryNavigation(){return <nav className="cinema-categories" aria-label="Explorar categorías">{categories.map(c=><NavLink key={c.to} to={c.to}><span>{c.number} / EXPLORAR</span><div><h2>{c.title}</h2><b aria-hidden="true">↗</b></div><p>{c.detail}</p></NavLink>)}</nav>}

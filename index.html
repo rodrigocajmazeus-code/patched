@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <meta name="theme-color" content="#101614" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="PATCHED: catálogo de películas, series y anime, favoritos y progreso de reproducción." />
+    <title>PATCHED · Tu portal de historias</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      ;(function (location) {
+        if (!location.search.startsWith('?/')) return
+        const decoded = location.search
+          .slice(2)
+          .split('&')
+          .map((part) => part.replace(/~and~/g, '&'))
+          .join('?')
+        window.history.replaceState(null, '', location.pathname.replace(/\/$/, '') + '/' + decoded + location.hash)
+      })(window.location)
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+PATCHED 0.9 - PUBLICACION EN GITHUB PAGES
+
+1. Entra a https://github.com/new con tu cuenta.
+2. Repository name: patched
+3. Selecciona Public (GitHub Pages con cuenta Free).
+4. Deja sin marcar README, .gitignore y License (los tenemos).
+5. Pulsa Create repository.
+6. Extrae PATCHED_codigo.zip en una carpeta NUEVA de Windows.
+7. Haz doble clic en SUBIR_A_GITHUB.cmd dentro de esa carpeta.
+   Escribe SI cuando pregunte. Puede pedir login de GitHub.
+   Espera a que aparezca LISTO. No ejecutes como administrador.
+8. En el repositorio: Settings > Pages > Source: GitHub Actions.
+9. Actions > PATCHED - Publicar GitHub Pages (manual) > Run workflow > main.
+10. URL: https://rodrigocajmazeus-code.github.io/patched/
+11. En la nueva web, Configuracion: introduce tu clave de TMDB en ese navegador.
+
+REQUISITOS: Git instalado en Windows; internet y acceso a tu cuenta GitHub.
+Si no aparece LISTO, copia el texto de la ventana para diagnosticarlo.
+No subas un ZIP como un solo archivo; GitHub necesita el codigo extraido.
+La pagina sera PUBLICA en internet. No equivale a login privado.

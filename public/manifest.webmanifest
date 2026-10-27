@@ -1,0 +1,17 @@
+{
+  "name": "PATCHED · Películas, series y anime",
+  "short_name": "PATCHED",
+  "description": "Películas, series y anime. Tu lista y progreso de reproducción.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#101614",
+  "theme_color": "#101614",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
