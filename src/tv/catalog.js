@@ -25,28 +25,33 @@ export function playableStream(entry) {
 
 export function buildLiveCatalog({ channels = [], streams = [], logos = [], countries = [], categories = [] }) {
   const byCountry = new Map(countries.map(item => [item.code, item]))
-  const byCategory = new Map(categories.map(item => [item.id, item.name]))
   const byLogo = new Map()
   for (const logo of logos) {
     if (!logo?.channel || !logo.in_use) continue
     const url = validUrl(logo.url, true)
     if (url && !byLogo.has(logo.channel)) byLogo.set(logo.channel, url)
   }
+  // Preserve alternate public streams; these are candidates, not verified feeds.
   const byStream = new Map()
   for (const entry of streams) {
     if (!entry?.channel) continue
     const source = playableStream(entry)
     if (!source) continue
-    const current = byStream.get(entry.channel)
-    const score = Number(source.labels.includes('Geo-blocked')) * 2 + Number(source.labels.includes('Not 24/7'))
-    if (!current || score < current.score) byStream.set(entry.channel, { source, score })
+    if (!byStream.has(entry.channel)) byStream.set(entry.channel, new Map())
+    byStream.get(entry.channel).set(source.url, source)
   }
   const result = []
   for (const channel of channels) {
     if (!channel?.id || !channel.name || channel.is_nsfw || channel.closed) continue
-    const source = byStream.get(channel.id)?.source || null
+    const sources = [...(byStream.get(channel.id)?.values() || [])]
+      .sort((a, b) => {
+        const penalty = item => Number(item.labels.includes('Geo-blocked')) * 2 +
+          Number(item.labels.includes('Not 24/7'))
+        return penalty(a) - penalty(b)
+      }).slice(0, 8)
+    const source = sources[0] || null
     const website = validUrl(channel.website)
-    if (!source && !website) continue
+    // Keep the complete active, non-adult directory without claiming playback.
     result.push({
       id: channel.id, name: channel.name,
       country: channel.country || '',
@@ -54,7 +59,7 @@ export function buildLiveCatalog({ channels = [], streams = [], logos = [], coun
       flag: byCountry.get(channel.country)?.flag || '🌐',
       categories: Array.isArray(channel.categories) ? channel.categories : [],
       logo: byLogo.get(channel.id) || null,
-      source, website,
+      source, sources, website,
     })
   }
   result.sort((a, b) => {
@@ -63,18 +68,32 @@ export function buildLiveCatalog({ channels = [], streams = [], logos = [], coun
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) ||
       Number(Boolean(b.source)) - Number(Boolean(a.source)) || a.name.localeCompare(b.name)
   })
-  return { channels: result, countries: [...byCountry.values()], categories: [...byCategory.entries()].map(([id, name]) => ({ id, name })) }
+  return {
+    channels: result,
+    countries: [...byCountry.values()],
+    categories: categories.map(item => ({ id: item.id, name: item.name })),
+    totals: {
+      listed: result.length,
+      candidates: result.filter(item => item.source).length,
+      officialOnly: result.filter(item => !item.source && item.website).length,
+      directoryOnly: result.filter(item => !item.source && !item.website).length,
+    },
+  }
+}
+
+async function loadDirectoryFile(file) {
+  const response = await fetch(API_BASE + '/' + file + '.json')
+  if (!response.ok) throw new Error('No se pudo consultar ' + file + ' (' + response.status + ').')
+  const rows = await response.json()
+  if (!Array.isArray(rows)) throw new Error('El directorio de TV devolvió datos inesperados.')
+  return rows
 }
 
 export async function fetchLiveCatalog() {
-  const data = await Promise.all(API_FILES.map(async file => {
-    const response = await fetch(API_BASE + '/' + file + '.json')
-    if (!response.ok) throw new Error('No se pudo consultar el catálogo de TV (' + response.status + ').')
-    const rows = await response.json()
-    if (!Array.isArray(rows)) throw new Error('El catálogo de TV devolvió datos inesperados.')
-    return rows
-  }))
-  return buildLiveCatalog(Object.fromEntries(API_FILES.map((name, index) => [name, data[index]])))
+  // Channel data and streams are essential; country names and logos can fail.
+  const [channels, streams] = await Promise.all(API_FILES.slice(0, 2).map(loadDirectoryFile))
+  const extras = await Promise.all(API_FILES.slice(2).map(file => loadDirectoryFile(file).catch(() => [])))
+  return buildLiveCatalog({ channels, streams, logos: extras[0], countries: extras[1], categories: extras[2] })
 }
 
 export function searchLiveChannels(channels, { query = '', country = 'all', category = 'all', playableOnly = false, favoritesOnly = false, favorites = [] } = {}) {
