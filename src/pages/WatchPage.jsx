@@ -26,6 +26,7 @@ import { usePlayerBridge } from '../hooks/usePlayerBridge.js'
 import MovieCard from '../components/MovieCard.jsx'
 import Row from '../components/Row.jsx'
 import PlayerEmbed from '../components/PlayerEmbed.jsx'
+import PlaybackTools from '../components/PlaybackTools.jsx'
 import ControlledPlayer from '../components/ControlledPlayer.jsx'
 import PlaybackVerificationPanel from '../components/PlaybackVerificationPanel.jsx'
 import AvailabilityStrip from '../components/AvailabilityStrip.jsx'
@@ -402,6 +403,7 @@ function PlayerView({
   const containerRef = useRef(null)
   const { providers, playbackPreference, setPlaybackPreference, restrictedFrames } = useProvider()
   const [frameLoaded, setFrameLoaded] = useState(false)
+  const [playerReload, setPlayerReload] = useState(0)
   const [frameErrorUrl, setFrameErrorUrl] = useState(null)
   const [frameTimeoutUrl, setFrameTimeoutUrl] = useState(null)
   const [portalNotice, setPortalNotice] = useState(null)
@@ -577,6 +579,14 @@ function PlayerView({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const reloadPlayer = () => {
+    setFrameLoaded(false)
+    setFrameErrorUrl(null)
+    setFrameTimeoutUrl(null)
+    setPortalNotice('Reabriendo esta señal. Si se había detenido, adelanta manualmente hasta el punto donde falló.')
+    setPlayerReload(count => count + 1)
+  }
+
   const toggleFullscreen = () => {
     const el = containerRef.current
     if (!el) return
@@ -634,11 +644,13 @@ function PlayerView({
           getAuthorizedMedia(mediaType, id, season, episode) ? (
             <ControlledPlayer entry={getAuthorizedMedia(mediaType, id, season, episode)} />
           ) : (
-            providerId ? <PlayerEmbed selectedProviderId={providerId} selectedProviderOptions={providerOptions} mediaType={mediaType} id={id} season={season} episode={episode} title={media.title} iframeRef={playerIframeRef} onFrameLoad={() => setFrameLoaded(true)} onFrameError={() => setFrameErrorUrl(contentPlayerUrl)} /> : <p role="status" className="p-6 text-amber-100">No se ha cargado ningún proveedor. Elige una fuente explícitamente; no se sustituirá el idioma solicitado.</p>
+            providerId ? <PlayerEmbed key={`${contentPlayerUrl}:${playerReload}`} selectedProviderId={providerId} selectedProviderOptions={providerOptions} mediaType={mediaType} id={id} season={season} episode={episode} title={media.title} iframeRef={playerIframeRef} onFrameLoad={() => setFrameLoaded(true)} onFrameError={() => setFrameErrorUrl(contentPlayerUrl)} /> : <p role="status" className="p-6 text-amber-100">No se ha cargado ningún proveedor. Elige una fuente explícitamente; no se sustituirá el idioma solicitado.</p>
           )
         )}
       </div>
 
+
+      {mode === 'content' && <PlaybackTools mediaType={mediaType} id={id} season={season} episode={episode} providerId={providerId} onReload={reloadPlayer} />}
 
       {mode === 'content' && (
         <section className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center gap-2 border-b border-white/10 px-4 py-3 sm:px-6 lg:px-10" aria-label="Servidores de reproducción">
