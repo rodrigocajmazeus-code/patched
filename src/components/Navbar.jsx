@@ -5,7 +5,7 @@ import { useMyList } from '../context/MyListContext.jsx'
 import { useHistory } from '../context/HistoryContext.jsx'
 import { SearchIcon, CloseIcon } from './icons.jsx'
 
-const navLinks = [{to:'/',label:'Inicio'},{to:'/anime',label:'Anime'},{to:'/series',label:'Series'},{to:'/movies',label:'Películas'},{to:'/mylist',label:'Mi lista'}]
+const navLinks = [{to:'/',label:'Inicio'},{to:'/anime',label:'Anime'},{to:'/series',label:'Series'},{to:'/movies',label:'Películas'},{to:'/tv',label:'TV en vivo'},{to:'/mylist',label:'Mi lista'}]
 const libraryLinks = [{to:'/history',label:'Historial'},{to:'/cobertura',label:'Comprobaciones'},{to:'/inventario',label:'Índice de disponibilidad'},{to:'/party',label:'Sala compartida'},{to:'/settings',label:'Configuración'}]
 export default function Navbar() {
   const [menuOpen,setMenuOpen]=useState(false)
