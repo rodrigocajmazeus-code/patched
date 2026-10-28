@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import LiveTvPlayer from '../components/LiveTvPlayer.jsx'
+import VirtualChannelGrid from '../components/VirtualChannelGrid.jsx'
 import { fetchLiveCatalog, searchLiveChannels } from '../tv/catalog.js'
 
 const PERU_FIRST = ['PE', 'ES', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE']
@@ -21,29 +22,6 @@ function savedFavorites() {
   }
 }
 
-function ChannelCard({ channel, selected, favorite, onSelect, onFavorite }) {
-  return (
-    <article className={'group relative min-w-0 overflow-hidden rounded-lg border bg-[#19221e] transition-colors ' + (selected ? 'border-[#91baa5]' : 'border-white/10 hover:border-white/30')}>
-      <button type="button" onClick={() => onSelect(channel)} aria-pressed={selected}
-        className="flex min-h-[140px] w-full flex-col items-start px-3 pb-3 pt-4 text-left">
-        <span className="relative mb-3 flex h-12 w-20 items-center justify-center rounded-md bg-[#101614] text-2xl">
-          {channel.flag}
-          {channel.logo && <img src={channel.logo} alt="" loading="lazy" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full rounded-md object-contain p-1" onError={event => { event.currentTarget.style.display = 'none' }} />}
-        </span>
-        <strong className="line-clamp-2 text-sm leading-5 text-cream">{channel.name}</strong>
-        <span className="mt-1 text-[11px] text-mist">{channel.flag} {channel.countryName}</span>
-        <span className={'mt-2 text-[10px] font-semibold ' + (channel.source ? 'text-[#a9d7ae]' : 'text-[#aab0b1]')}>
-          {channel.source ? (channel.sources?.length > 1 ? channel.sources.length + ' señales para intentar' : '1 señal para intentar') : channel.website ? 'Abrir sitio oficial' : 'Sin enlace de emisión'}
-        </span>
-      </button>
-      <button type="button" onClick={() => onFavorite(channel.id)} aria-label={(favorite ? 'Quitar de' : 'Añadir a') + ' favoritos: ' + channel.name}
-        aria-pressed={favorite} className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#0c120f]/90 text-base text-cream hover:text-brand">
-        {favorite ? '♥' : '♡'}
-      </button>
-    </article>
-  )
-}
-
 export default function LiveTvPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -58,7 +36,6 @@ export default function LiveTvPage() {
   const [sourceIndex, setSourceIndex] = useState(0)
   const [favorites, setFavorites] = useState(savedFavorites)
   const [selectedId, setSelectedId] = useState(null)
-  const [visibleCount, setVisibleCount] = useState(96)
 
   useEffect(() => {
     let active = true
@@ -104,7 +81,7 @@ export default function LiveTvPage() {
   } : null, [selected, sourceIndex])
   const candidates = data?.totals?.candidates || 0
   const toggleFavorite = id => setFavorites(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id].slice(0, 400))
-  const updateFilter = setter => value => { setter(value); setVisibleCount(96) }
+  const updateFilter = setter => value => setter(value)
   const selectChannel = item => {
     setSelectedId(item.id)
     setSourceIndex(0)
@@ -112,7 +89,6 @@ export default function LiveTvPage() {
   const pickRegion = (value, selectedCountry = 'all') => {
     setRegion(value)
     setCountry(selectedCountry)
-    setVisibleCount(96)
   }
 
   return (
@@ -195,7 +171,7 @@ export default function LiveTvPage() {
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-cream/85">
             <label className="flex items-center gap-2"><input type="checkbox" checked={playableOnly} onChange={e => updateFilter(setPlayableOnly)(e.target.checked)} /> Solo señales para intentar reproducir</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={favoritesOnly} onChange={e => updateFilter(setFavoritesOnly)(e.target.checked)} /> Mis favoritos ({favorites.length})</label>
-            {!loading && data && <span className="font-semibold text-brand">{matching.length.toLocaleString('es-PE')} resultados · mostrando {Math.min(visibleCount, matching.length).toLocaleString('es-PE')}</span>}
+            {!loading && data && <span className="font-semibold text-brand">{matching.length.toLocaleString('es-PE')} canales disponibles para explorar · sin paginación</span>}
           </div>
 
           {loading && <p role="status" className="mt-10 rounded-lg border border-white/10 bg-[#18221e] px-5 py-8 text-sm text-mist">Cargando canales, emisoras y señales…</p>}
@@ -203,13 +179,9 @@ export default function LiveTvPage() {
           {!loading && !error && matching.length === 0 && <p className="mt-8 rounded-lg border border-white/10 bg-[#18221e] p-5 text-sm text-mist">No hay resultados con esos filtros. Prueba otra región o desmarca «Solo señales para intentar reproducir».</p>}
           {!loading && !error && matching.length > 0 && (
             <>
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {matching.slice(0, visibleCount).map(channel =>
-                  <ChannelCard key={channel.id} channel={channel} selected={selectedId === channel.id}
-                    favorite={favorites.includes(channel.id)} onSelect={selectChannel} onFavorite={toggleFavorite} />
-                )}
-              </div>
-              {matching.length > visibleCount && <div className="mt-7 flex justify-center"><button type="button" onClick={() => setVisibleCount(n => n + 96)} className="rounded-md border border-white/20 px-5 py-3 text-sm font-semibold hover:bg-white/10">Cargar más canales ({matching.length - visibleCount} restantes)</button></div>}
+              <p className="mt-4 text-xs leading-5 text-mist">Toda la lista está disponible desde ahora: desliza para recorrerla sin pulsar «Cargar más». Para cuidar tu celular, PATCHED dibuja únicamente las tarjetas cercanas a tu pantalla.</p>
+              <VirtualChannelGrid channels={matching} selectedId={selectedId} favorites={favorites}
+                onSelect={selectChannel} onFavorite={toggleFavorite} />
             </>
           )}
         </section>
