@@ -27,6 +27,7 @@ export const ISSUE_CHOICES = Object.freeze([
   { value: 'untested', label: 'Sin comprobar' },
   { value: 'ok', label: 'Funcionó correctamente' },
   { value: 'stalled', label: 'Se detuvo o no cargó' },
+  { value: 'missing-castilian', label: 'No encontré castellano en este capítulo' },
   { value: 'missing-audio', label: 'Sin audio o idioma incorrecto' },
   { value: 'ads', label: 'Publicidad o ventanas molestas' },
   { value: 'wrong-episode', label: 'Episodio incorrecto' },
