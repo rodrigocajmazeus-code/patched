@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveTvPlayer from '../components/LiveTvPlayer.jsx'
 import VirtualChannelGrid from '../components/VirtualChannelGrid.jsx'
 import { fetchLiveCatalog, searchLiveChannels } from '../tv/catalog.js'
@@ -36,6 +36,8 @@ export default function LiveTvPage() {
   const [sourceIndex, setSourceIndex] = useState(0)
   const [favorites, setFavorites] = useState(savedFavorites)
   const [selectedId, setSelectedId] = useState(null)
+  const [returnScroll, setReturnScroll] = useState(null)
+  const playerAreaRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -83,8 +85,10 @@ export default function LiveTvPage() {
   const toggleFavorite = id => setFavorites(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id].slice(0, 400))
   const updateFilter = setter => value => setter(value)
   const selectChannel = item => {
+    setReturnScroll(window.scrollY)
     setSelectedId(item.id)
     setSourceIndex(0)
+    playerAreaRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
   }
   const pickRegion = (value, selectedCountry = 'all') => {
     setRegion(value)
@@ -103,7 +107,7 @@ export default function LiveTvPage() {
           <div className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-[#a9d7ae]">● LABORATORIO</div>
         </div>
 
-        <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,.65fr)]" aria-label="Reproductor de TV">
+        <section ref={playerAreaRef} className="mt-6 grid scroll-mt-24 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,.65fr)]" aria-label="Reproductor de TV">
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
             <LiveTvPlayer channel={playbackChannel} />
           </div>
@@ -121,6 +125,8 @@ export default function LiveTvPage() {
             </label>}
             {selected?.website && <a href={selected.website} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">Abrir página oficial ↗</a>}
             {playbackChannel?.source && <p className="text-xs leading-5 text-mist">Si no carga, prueba otra señal registrada del canal. También puede fallar por CORS, región o caída de la fuente; no usamos proxies para sortear restricciones.</p>}
+            {returnScroll !== null && <button type="button" onClick={() => window.scrollTo({ top: returnScroll, behavior: 'auto' })}
+              className="w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">← Volver donde estaba en el catálogo</button>}
           </div>
         </section>
 
