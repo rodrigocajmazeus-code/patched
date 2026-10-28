@@ -6,6 +6,7 @@ const routes = [
   { to: '/anime', text: 'Anime', icon: 'tv' },
   { to: '/series', text: 'Series', icon: 'tv' },
   { to: '/movies', text: 'Películas', icon: 'film' },
+  { to: '/tv', text: 'TV', icon: 'live' },
   { to: '/search', text: 'Buscar', icon: 'search' },
 ]
 
@@ -14,6 +15,7 @@ function Icon({ type }) {
   const paths = {
     home: <><path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/></>,
     film: <><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4m10 0h4M3 15h4m10 0h4"/></>,
+    live: <><rect x="4" y="6" width="16" height="13" rx="2"/><path d="M9 3l3 3 3-3M9 22h6"/></>,
     tv: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 22h6M12 19v3"/></>,
     bookmark: <path d="M5 3h14v18l-7-5-7 5z"/>,
     search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,

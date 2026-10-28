@@ -23,6 +23,7 @@ import InventoryPage from './pages/InventoryPage.jsx'
 import SeriesPage from './pages/SeriesPage.jsx'
 import WatchPage from './pages/WatchPage.jsx'
 import AudioLabPage from './pages/AudioLabPage.jsx'
+import LiveTVPage from './pages/LiveTVPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import WatchPartyPage from './pages/WatchPartyPage.jsx'
 import WatchPartyRoom from './pages/WatchPartyRoom.jsx'
@@ -47,6 +48,7 @@ export default function App() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/movies" element={<MoviesPage />} />
                   <Route path="/anime" element={<AnimePage />} />
+                  <Route path="/tv" element={<LiveTVPage />} />
                   <Route path="/cobertura" element={<CoveragePage />} />
                   <Route path="/inventario" element={<InventoryPage />} />
                   <Route path="/series" element={<SeriesPage />} />
