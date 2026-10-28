@@ -1,3 +1,5 @@
+import { fetchSupplementalSources } from './supplementalSources.js'
+
 const API_BASE = 'https://iptv-org.github.io/api'
 const API_FILES = ['channels', 'streams', 'logos', 'countries', 'categories']
 const PRIORITY_COUNTRIES = ['PE', 'ES', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE', 'BO', 'UY']
@@ -18,12 +20,13 @@ export function playableStream(entry) {
   const url = validUrl(entry.url, true)
   if (!url) return null
   const pathname = new URL(url).pathname.toLowerCase()
-  if (pathname.endsWith('.m3u8')) return { url, type: 'hls', quality: entry.quality || null, labels: entry.labels || [] }
-  if (pathname.endsWith('.mp4')) return { url, type: 'mp4', quality: entry.quality || null, labels: entry.labels || [] }
+  const base = { url, quality: entry.quality || null, labels: Array.isArray(entry.labels) ? entry.labels : [], provider: entry.provider || 'IPTV-org' }
+  if (pathname.endsWith('.m3u8')) return { ...base, type: 'hls' }
+  if (pathname.endsWith('.mp4')) return { ...base, type: 'mp4' }
   return null
 }
 
-export function buildLiveCatalog({ channels = [], streams = [], logos = [], countries = [], categories = [] }) {
+export function buildLiveCatalog({ channels = [], streams = [], logos = [], countries = [], categories = [], additionalChannels = [], additionalStreams = [] }) {
   const byCountry = new Map(countries.map(item => [item.code, item]))
   const byLogo = new Map()
   for (const logo of logos) {
@@ -33,22 +36,24 @@ export function buildLiveCatalog({ channels = [], streams = [], logos = [], coun
   }
   // Preserve alternate public streams; these are candidates, not verified feeds.
   const byStream = new Map()
-  for (const entry of streams) {
+  for (const entry of [...streams, ...additionalStreams]) {
     if (!entry?.channel) continue
     const source = playableStream(entry)
     if (!source) continue
     if (!byStream.has(entry.channel)) byStream.set(entry.channel, new Map())
-    byStream.get(entry.channel).set(source.url, source)
+    // Keep the first provider for identical URLs; a duplicate is not a backup.
+    if (!byStream.get(entry.channel).has(source.url)) byStream.get(entry.channel).set(source.url, source)
   }
   const result = []
-  for (const channel of channels) {
+  for (const channel of [...channels, ...additionalChannels]) {
     if (!channel?.id || !channel.name || channel.is_nsfw || channel.closed) continue
     const sources = [...(byStream.get(channel.id)?.values() || [])]
       .sort((a, b) => {
         const penalty = item => Number(item.labels.includes('Geo-blocked')) * 2 +
           Number(item.labels.includes('Not 24/7'))
-        return penalty(a) - penalty(b)
-      }).slice(0, 8)
+        const order = { TDTChannels: 0, 'IPTV-org': 1, 'Free-TV': 2 }
+        return penalty(a) - penalty(b) || (order[a.provider] ?? 3) - (order[b.provider] ?? 3)
+      }).slice(0, 12)
     const source = sources[0] || null
     const website = validUrl(channel.website)
     // Keep the complete active, non-adult directory without claiming playback.
@@ -58,7 +63,7 @@ export function buildLiveCatalog({ channels = [], streams = [], logos = [], coun
       countryName: byCountry.get(channel.country)?.name || channel.country || 'Sin país',
       flag: byCountry.get(channel.country)?.flag || '🌐',
       categories: Array.isArray(channel.categories) ? channel.categories : [],
-      logo: byLogo.get(channel.id) || null,
+      logo: byLogo.get(channel.id) || validUrl(channel.logo, true),
       source, sources, website,
     })
   }
@@ -77,6 +82,11 @@ export function buildLiveCatalog({ channels = [], streams = [], logos = [], coun
       candidates: result.filter(item => item.source).length,
       officialOnly: result.filter(item => !item.source && item.website).length,
       directoryOnly: result.filter(item => !item.source && !item.website).length,
+      providerCandidates: {
+        'IPTV-org': result.filter(item => item.sources.some(s => s.provider === 'IPTV-org')).length,
+        'TDTChannels': result.filter(item => item.sources.some(s => s.provider === 'TDTChannels')).length,
+        'Free-TV': result.filter(item => item.sources.some(s => s.provider === 'Free-TV')).length,
+      },
     },
   }
 }
@@ -92,8 +102,12 @@ async function loadDirectoryFile(file) {
 export async function fetchLiveCatalog() {
   // Channel data and streams are essential; country names and logos can fail.
   const [channels, streams] = await Promise.all(API_FILES.slice(0, 2).map(loadDirectoryFile))
-  const extras = await Promise.all(API_FILES.slice(2).map(file => loadDirectoryFile(file).catch(() => [])))
-  return buildLiveCatalog({ channels, streams, logos: extras[0], countries: extras[1], categories: extras[2] })
+  const [extras, supplemental] = await Promise.all([
+    Promise.all(API_FILES.slice(2).map(file => loadDirectoryFile(file).catch(() => []))),
+    fetchSupplementalSources(channels).catch(() => ({ channels: [], streams: [] })),
+  ])
+  return buildLiveCatalog({ channels, streams, logos: extras[0], countries: extras[1], categories: extras[2],
+    additionalChannels: supplemental.channels, additionalStreams: supplemental.streams })
 }
 
 export function searchLiveChannels(channels, { query = '', country = 'all', category = 'all', playableOnly = false, favoritesOnly = false, favorites = [] } = {}) {
