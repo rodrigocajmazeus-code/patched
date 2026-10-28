@@ -3,6 +3,7 @@ import LiveTvPlayer from '../components/LiveTvPlayer.jsx'
 import { fetchLiveCatalog, searchLiveChannels } from '../tv/catalog.js'
 
 const PERU_FIRST = ['PE', 'ES', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE']
+const LATAM = new Set(['PE', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE', 'BO', 'UY', 'PY', 'BR', 'CR', 'PA', 'GT', 'HN', 'SV', 'NI', 'DO', 'CU', 'HT', 'PR'])
 const CATEGORY_NAMES = {
   general: 'General', news: 'Noticias', sports: 'Deportes', movies: 'Películas',
   entertainment: 'Entretenimiento', music: 'Música', documentary: 'Documentales',
@@ -32,7 +33,7 @@ function ChannelCard({ channel, selected, favorite, onSelect, onFavorite }) {
         <strong className="line-clamp-2 text-sm leading-5 text-cream">{channel.name}</strong>
         <span className="mt-1 text-[11px] text-mist">{channel.flag} {channel.countryName}</span>
         <span className={'mt-2 text-[10px] font-semibold ' + (channel.source ? 'text-[#a9d7ae]' : 'text-[#aab0b1]')}>
-          {channel.source ? 'Señal disponible para intentar' : 'Solo sitio oficial'}
+          {channel.source ? (channel.sources?.length > 1 ? channel.sources.length + ' señales para intentar' : '1 señal para intentar') : channel.website ? 'Abrir sitio oficial' : 'Sin enlace de emisión'}
         </span>
       </button>
       <button type="button" onClick={() => onFavorite(channel.id)} aria-label={(favorite ? 'Quitar de' : 'Añadir a') + ' favoritos: ' + channel.name}
@@ -51,11 +52,13 @@ export default function LiveTvPage() {
   const [query, setQuery] = useState('')
   const [country, setCountry] = useState('all')
   const [category, setCategory] = useState('all')
-  const [playableOnly, setPlayableOnly] = useState(true)
+  const [playableOnly, setPlayableOnly] = useState(false)
   const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [region, setRegion] = useState('world')
+  const [sourceIndex, setSourceIndex] = useState(0)
   const [favorites, setFavorites] = useState(savedFavorites)
   const [selectedId, setSelectedId] = useState(null)
-  const [visibleCount, setVisibleCount] = useState(40)
+  const [visibleCount, setVisibleCount] = useState(96)
 
   useEffect(() => {
     let active = true
@@ -80,21 +83,37 @@ export default function LiveTvPage() {
   }, [favorites])
 
   const options = useMemo(() => (data?.countries || [])
-    .filter(item => data.channels.some(c => c.country === item.code))
+    .filter(item => new Set(data.channels.map(c => c.country)).has(item.code))
     .sort((a, b) => {
       const ai = PERU_FIRST.indexOf(a.code)
       const bi = PERU_FIRST.indexOf(b.code)
       return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || a.name.localeCompare(b.name)
     }), [data])
 
-  const matching = useMemo(() => searchLiveChannels(data?.channels || [], {
-    query, country, category, playableOnly, favoritesOnly, favorites,
-  }), [data, query, country, category, playableOnly, favoritesOnly, favorites])
+  const matching = useMemo(() => {
+    const matches = searchLiveChannels(data?.channels || [], {
+      query, country, category, playableOnly, favoritesOnly, favorites,
+    })
+    return region === 'latam' ? matches.filter(channel => LATAM.has(channel.country)) : matches
+  }, [data, query, country, category, playableOnly, favoritesOnly, favorites, region])
 
   const selected = useMemo(() => data?.channels.find(item => item.id === selectedId) || null, [data, selectedId])
-  const candidates = data?.channels.filter(item => item.source).length || 0
+  const playbackChannel = useMemo(() => selected ? {
+    ...selected,
+    source: selected.sources?.[sourceIndex] || selected.source,
+  } : null, [selected, sourceIndex])
+  const candidates = data?.totals?.candidates || 0
   const toggleFavorite = id => setFavorites(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id].slice(0, 400))
-  const updateFilter = setter => value => { setter(value); setVisibleCount(40) }
+  const updateFilter = setter => value => { setter(value); setVisibleCount(96) }
+  const selectChannel = item => {
+    setSelectedId(item.id)
+    setSourceIndex(0)
+  }
+  const pickRegion = (value, selectedCountry = 'all') => {
+    setRegion(value)
+    setCountry(selectedCountry)
+    setVisibleCount(96)
+  }
 
   return (
     <div className="min-h-screen bg-ink px-4 pb-28 pt-28 text-cream sm:px-6 lg:px-10">
@@ -110,15 +129,22 @@ export default function LiveTvPage() {
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,.65fr)]" aria-label="Reproductor de TV">
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
-            <LiveTvPlayer channel={selected} />
+            <LiveTvPlayer channel={playbackChannel} />
           </div>
           <div className="flex flex-col justify-center gap-3 rounded-xl border border-white/10 bg-[#18221e] p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-brand">Señal seleccionada</p>
             <h2 className="text-2xl font-semibold text-cream">{selected?.name || 'Elige un canal'}</h2>
             <p className="text-xs leading-6 text-mist">{selected ? selected.flag + ' ' + selected.countryName : 'Busca por nombre, país o categoría. Los canales marcados con señal pueden probarse directamente en PATCHED.'}</p>
-            {selected?.source && <p className="text-xs text-mist">Formato: {selected.source.type.toUpperCase()}{selected.source.quality ? ' · ' + selected.source.quality : ''}{selected.source.labels?.length ? ' · ' + selected.source.labels.join(', ') : ''}</p>}
+            {playbackChannel?.source && <p className="text-xs text-mist">Formato: {playbackChannel.source.type.toUpperCase()}{playbackChannel.source.quality ? ' · ' + playbackChannel.source.quality : ''}{playbackChannel.source.labels?.length ? ' · ' + playbackChannel.source.labels.join(', ') : ''}</p>}
+            {selected?.sources?.length > 1 && <label className="grid gap-1 text-xs text-mist">
+              Elegir señal alternativa ({selected.sources.length} registradas)
+              <select value={sourceIndex} onChange={e => setSourceIndex(Number(e.target.value))}
+                className="w-full rounded-md border border-white/15 bg-[#0f1914] px-3 py-2.5 text-sm text-cream">
+                {selected.sources.map((source, index) => <option key={source.url} value={index}>Señal {index + 1}{source.quality ? ' · ' + source.quality : ''}{source.labels?.length ? ' · ' + source.labels.join(', ') : ''}</option>)}
+              </select>
+            </label>}
             {selected?.website && <a href={selected.website} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">Abrir página oficial ↗</a>}
-            {selected?.source && <p className="text-xs leading-5 text-mist">Si no carga, puede ser por CORS, región o caída de la fuente. No usamos proxies para sortear restricciones.</p>}
+            {playbackChannel?.source && <p className="text-xs leading-5 text-mist">Si no carga, prueba otra señal registrada del canal. También puede fallar por CORS, región o caída de la fuente; no usamos proxies para sortear restricciones.</p>}
           </div>
         </section>
 
@@ -126,9 +152,22 @@ export default function LiveTvPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-semibold">Explorar canales</h2>
-              <p className="mt-1 text-xs text-mist">{loading ? 'Consultando emisoras…' : data ? data.channels.length.toLocaleString('es-PE') + ' fichas en el directorio · ' + candidates.toLocaleString('es-PE') + ' con señal candidata' : 'Directorio pendiente'}</p>
+              <p className="mt-1 text-xs text-mist">{loading ? 'Consultando emisoras…' : data ? data.channels.length.toLocaleString('es-PE') + ' canales listados · ' + candidates.toLocaleString('es-PE') + ' con señal candidata (sin verificar)' : 'Directorio pendiente'}</p>
             </div>
             <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand hover:underline">Fuente del directorio ↗</a>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2" aria-label="Regiones">
+            {[
+              { id: 'world', country: 'all', label: '🌍 Todo el mundo' },
+              { id: 'world', country: 'PE', label: '🇵🇪 Perú' },
+              { id: 'latam', country: 'all', label: '🌎 Latinoamérica' },
+              { id: 'world', country: 'ES', label: '🇪🇸 España' },
+            ].map(item => <button key={item.label} type="button"
+              aria-pressed={region === item.id && country === item.country}
+              onClick={() => pickRegion(item.id, item.country)}
+              className={'rounded-full border px-3 py-2 text-xs font-semibold transition ' + (region === item.id && country === item.country ? 'border-brand bg-brand/15 text-cream' : 'border-white/15 text-mist hover:border-white/35 hover:text-cream')}>
+              {item.label}
+            </button>)}
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_190px]">
             <label className="grid gap-1 text-xs text-mist">
@@ -138,7 +177,7 @@ export default function LiveTvPage() {
             </label>
             <label className="grid gap-1 text-xs text-mist">
               País
-              <select value={country} onChange={e => updateFilter(setCountry)(e.target.value)}
+              <select value={country} onChange={e => { setRegion('world'); updateFilter(setCountry)(e.target.value) }}
                 className="w-full rounded-md border border-white/15 bg-[#1b2922] px-3 py-3 text-sm text-cream">
                 <option value="all">Todos los países</option>
                 {options.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
@@ -154,23 +193,23 @@ export default function LiveTvPage() {
             </label>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-cream/85">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={playableOnly} onChange={e => updateFilter(setPlayableOnly)(e.target.checked)} /> Solo señales con reproductor</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={playableOnly} onChange={e => updateFilter(setPlayableOnly)(e.target.checked)} /> Solo señales para intentar reproducir</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={favoritesOnly} onChange={e => updateFilter(setFavoritesOnly)(e.target.checked)} /> Mis favoritos ({favorites.length})</label>
-            {!loading && data && <span className="text-mist">{matching.length.toLocaleString('es-PE')} resultados</span>}
+            {!loading && data && <span className="font-semibold text-brand">{matching.length.toLocaleString('es-PE')} resultados · mostrando {Math.min(visibleCount, matching.length).toLocaleString('es-PE')}</span>}
           </div>
 
           {loading && <p role="status" className="mt-10 rounded-lg border border-white/10 bg-[#18221e] px-5 py-8 text-sm text-mist">Cargando canales, emisoras y señales…</p>}
           {!loading && error && <div role="alert" className="mt-8 rounded-lg border border-white/10 bg-[#18221e] p-5"><p className="text-sm text-mist">{error}</p><button type="button" onClick={() => setReload(x => x + 1)} className="mt-3 rounded-md bg-brand px-4 py-2 text-sm font-bold text-black">Volver a intentar</button></div>}
-          {!loading && !error && matching.length === 0 && <p className="mt-8 rounded-lg border border-white/10 bg-[#18221e] p-5 text-sm text-mist">No hay resultados con esos filtros. Prueba otro país o desmarca «Solo señales con reproductor».</p>}
+          {!loading && !error && matching.length === 0 && <p className="mt-8 rounded-lg border border-white/10 bg-[#18221e] p-5 text-sm text-mist">No hay resultados con esos filtros. Prueba otra región o desmarca «Solo señales para intentar reproducir».</p>}
           {!loading && !error && matching.length > 0 && (
             <>
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {matching.slice(0, visibleCount).map(channel =>
                   <ChannelCard key={channel.id} channel={channel} selected={selectedId === channel.id}
-                    favorite={favorites.includes(channel.id)} onSelect={item => setSelectedId(item.id)} onFavorite={toggleFavorite} />
+                    favorite={favorites.includes(channel.id)} onSelect={selectChannel} onFavorite={toggleFavorite} />
                 )}
               </div>
-              {matching.length > visibleCount && <div className="mt-7 flex justify-center"><button type="button" onClick={() => setVisibleCount(n => n + 40)} className="rounded-md border border-white/20 px-5 py-3 text-sm font-semibold hover:bg-white/10">Cargar más canales ({matching.length - visibleCount} restantes)</button></div>}
+              {matching.length > visibleCount && <div className="mt-7 flex justify-center"><button type="button" onClick={() => setVisibleCount(n => n + 96)} className="rounded-md border border-white/20 px-5 py-3 text-sm font-semibold hover:bg-white/10">Cargar más canales ({matching.length - visibleCount} restantes)</button></div>}
             </>
           )}
         </section>
