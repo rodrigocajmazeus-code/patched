@@ -19,7 +19,7 @@ export function visibleTvRows({ itemCount, columns, top, viewportHeight, oversca
   return {
     firstRow,
     lastRow,
-    start: firstRow * safeColumns,
+    start: Math.min(safeCount, firstRow * safeColumns),
     end: Math.min(safeCount, lastRow * safeColumns),
     totalRows,
     totalHeight: totalRows * safeHeight,
