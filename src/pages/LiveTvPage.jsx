@@ -35,6 +35,10 @@ export default function LiveTvPage() {
   const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [region, setRegion] = useState('world')
   const [sourceIndex, setSourceIndex] = useState(0)
+  const [autoSwitch, setAutoSwitch] = useState(true)
+  const [lastIssue, setLastIssue] = useState(null)
+  const [playingSource, setPlayingSource] = useState('')
+  const [retry, setRetry] = useState(0)
   const [favorites, setFavorites] = useState(savedFavorites)
   const [selectedId, setSelectedId] = useState(null)
   const [returnScroll, setReturnScroll] = useState(null)
@@ -83,13 +87,36 @@ export default function LiveTvPage() {
     source: selected.sources?.[sourceIndex] || selected.source,
   } : null, [selected, sourceIndex])
   const candidates = data?.totals?.candidates || 0
+  const providerCandidates = data?.totals?.providerCandidates || {}
   const toggleFavorite = id => setFavorites(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id].slice(0, 400))
   const updateFilter = setter => value => setter(value)
   const selectChannel = item => {
     setReturnScroll(window.scrollY)
     setSelectedId(item.id)
     setSourceIndex(0)
+    setLastIssue(null)
+    setPlayingSource('')
+    setRetry(0)
     playerAreaRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+  }
+  const onSourceError = issue => {
+    if (!selected?.sources?.[sourceIndex] || selected.sources[sourceIndex].url !== issue.url) return
+    const hasNext = sourceIndex + 1 < selected.sources.length
+    setLastIssue({ ...issue, switched: autoSwitch && hasNext })
+    setPlayingSource('')
+    if (autoSwitch && hasNext) setSourceIndex(sourceIndex + 1)
+  }
+  const onSourcePlaying = url => {
+    if (selected?.sources?.[sourceIndex]?.url === url) {
+      setPlayingSource(url)
+      setLastIssue(null)
+    }
+  }
+  const pickSource = index => {
+    setSourceIndex(index)
+    setLastIssue(null)
+    setPlayingSource('')
+    setRetry(x => x + 1)
   }
   const pickRegion = (value, selectedCountry = 'all') => {
     setRegion(value)
@@ -110,20 +137,33 @@ export default function LiveTvPage() {
 
         <section ref={playerAreaRef} className="mt-6 grid scroll-mt-24 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,.65fr)]" aria-label="Reproductor de TV">
           <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
-            <LiveTvPlayer channel={playbackChannel} />
+            <LiveTvPlayer key={(selectedId || 'none') + ':' + retry} channel={playbackChannel}
+              onSourceError={onSourceError} onSourcePlaying={onSourcePlaying} />
           </div>
           <div className="flex flex-col justify-center gap-3 rounded-xl border border-white/10 bg-[#18221e] p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-brand">Señal seleccionada</p>
             <h2 className="text-2xl font-semibold text-cream">{selected?.name || 'Elige un canal'}</h2>
             <p className="text-xs leading-6 text-mist">{selected ? selected.flag + ' ' + selected.countryName : 'Busca por nombre, país o categoría. Los canales marcados con señal pueden probarse directamente en PATCHED.'}</p>
-            {playbackChannel?.source && <p className="text-xs text-mist">Formato: {playbackChannel.source.type.toUpperCase()}{playbackChannel.source.quality ? ' · ' + playbackChannel.source.quality : ''}{playbackChannel.source.labels?.length ? ' · ' + playbackChannel.source.labels.join(', ') : ''}</p>}
+            {playbackChannel?.source && <p className="text-xs text-mist">Fuente: {playbackChannel.source.provider || 'IPTV-org'} · Formato: {playbackChannel.source.type.toUpperCase()}{playbackChannel.source.quality ? ' · ' + playbackChannel.source.quality : ''}{playbackChannel.source.labels?.length ? ' · ' + playbackChannel.source.labels.join(', ') : ''}</p>}
             {selected?.sources?.length > 1 && <label className="grid gap-1 text-xs text-mist">
-              Elegir señal alternativa ({selected.sources.length} registradas)
-              <select value={sourceIndex} onChange={e => setSourceIndex(Number(e.target.value))}
+              Fuente de emisión ({sourceIndex + 1}/{selected.sources.length} · sin verificar)
+              <select value={sourceIndex} onChange={e => pickSource(Number(e.target.value))}
                 className="w-full rounded-md border border-white/15 bg-[#0f1914] px-3 py-2.5 text-sm text-cream">
-                {selected.sources.map((source, index) => <option key={source.url} value={index}>Señal {index + 1}{source.quality ? ' · ' + source.quality : ''}{source.labels?.length ? ' · ' + source.labels.join(', ') : ''}</option>)}
+                {selected.sources.map((source, index) => <option key={source.url} value={index}>{source.provider || 'IPTV-org'} · opción {index + 1}{source.quality ? ' · ' + source.quality : ''}{source.labels?.length ? ' · ' + source.labels.join(', ') : ''}</option>)}
               </select>
             </label>}
+            {selected?.sources?.length > 1 && <label className="flex items-center gap-2 text-xs text-mist">
+              <input type="checkbox" checked={autoSwitch} onChange={e => setAutoSwitch(e.target.checked)} />
+              Cambiar automáticamente a otra señal cuando falle
+            </label>}
+            {playingSource && <p role="status" className="text-xs text-[#a9d7ae]">Reproduciendo señal {sourceIndex + 1}. Esto no garantiza que funcione siempre.</p>}
+            {lastIssue && <div role="status" className="rounded-md border border-amber-200/20 bg-amber-400/5 p-3 text-xs leading-5 text-[#efcf9e]">
+              {lastIssue.switched ? 'Falló la señal anterior; probando la siguiente. Puede ser necesario pulsar reproducir otra vez.' : 'Falló la señal actual.'}
+              {' '}Tipo: {lastIssue.type}{lastIssue.status ? ' · HTTP ' + lastIssue.status : ''}{lastIssue.detail ? ' · ' + lastIssue.detail : ''}.
+              {selected?.sources?.length > 1 && <button type="button" className="mt-2 block underline" onClick={() => pickSource((sourceIndex + 1) % selected.sources.length)}>Probar otra señal manualmente</button>}
+            </div>}
+            {playbackChannel?.source && <button type="button" onClick={() => pickSource(sourceIndex)}
+              className="w-fit rounded-md border border-white/20 px-4 py-2 text-xs font-semibold text-cream hover:bg-white/10">Reintentar esta señal</button>}
             {selected?.website && <a href={selected.website} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">Abrir página oficial ↗</a>}
             {playbackChannel?.source && <p className="text-xs leading-5 text-mist">Si no carga, prueba otra señal registrada del canal. También puede fallar por CORS, región o caída de la fuente; no usamos proxies para sortear restricciones.</p>}
             {returnScroll !== null && <button type="button" onClick={() => window.scrollTo({ top: returnScroll, behavior: 'auto' })}
@@ -139,8 +179,9 @@ export default function LiveTvPage() {
               <h2 className="text-xl font-semibold">Explorar canales</h2>
               <p className="mt-1 text-xs text-mist">{loading ? 'Consultando emisoras…' : data ? data.channels.length.toLocaleString('es-PE') + ' canales listados · ' + candidates.toLocaleString('es-PE') + ' con señal candidata (sin verificar)' : 'Directorio pendiente'}</p>
             </div>
-            <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand hover:underline">Fuente del directorio ↗</a>
+            <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand hover:underline">Directorio original ↗</a>
           </div>
+          {data && <p className="mt-2 text-xs leading-5 text-mist">Fuentes candidatas por proveedor: IPTV-org {providerCandidates['IPTV-org'] || 0} · TDTChannels {providerCandidates.TDTChannels || 0} · Free-TV {providerCandidates['Free-TV'] || 0}. Una misma cadena puede aparecer en varios proveedores; estos números no indican reproducciones verificadas.</p>}
           <div className="mt-5 flex flex-wrap gap-2" aria-label="Regiones">
             {[
               { id: 'world', country: 'all', label: '🌍 Todo el mundo' },
@@ -195,7 +236,7 @@ export default function LiveTvPage() {
           )}
         </section>
 
-        <p className="mt-12 border-t border-white/10 pt-5 text-xs leading-6 text-mist">Datos de <a className="text-brand hover:underline" href="https://github.com/iptv-org/api" target="_blank" rel="noopener noreferrer">IPTV-org</a>. Este módulo no aloja emisiones, no certifica su disponibilidad ni verifica los derechos de cada enlace. Las señales dependen de terceros; para el acceso autorizado y estable, utiliza el sitio oficial de cada canal. Los favoritos se guardan solo en este navegador.</p>
+        <p className="mt-12 border-t border-white/10 pt-5 text-xs leading-6 text-mist">Directorio de <a className="text-brand hover:underline" href="https://github.com/iptv-org/api" target="_blank" rel="noopener noreferrer">IPTV-org</a>, con señales adicionales candidatas de <a href="https://www.tdtchannels.com/listas/" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">TDTChannels</a> y <a href="https://github.com/Free-TV/IPTV" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">Free-TV</a>. Este módulo no aloja emisiones, no certifica su disponibilidad ni verifica los derechos de cada enlace. Las señales dependen de terceros; para el acceso autorizado y estable, utiliza el sitio oficial de cada canal. Los favoritos se guardan solo en este navegador.</p>
       </div>
     </div>
   )
