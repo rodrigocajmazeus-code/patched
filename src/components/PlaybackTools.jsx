@@ -66,6 +66,7 @@ export default function PlaybackTools({ mediaType, id, season, episode, provider
       `Fuente: ${providerId || 'sin elegir'}`,
       `Resultado: ${ISSUE_CHOICES.find(c => c.value === issue)?.label}`,
       `Idioma: ${LANGUAGE_CHOICES.find(c => c.value === language)?.label}`,
+      `Minuto del fallo: ${current.atMinute || 'no registrado'}`,
       `Observación: manual; no es una verificación automática de PATCHED.`,
     ].join('\n')
     try {
@@ -100,6 +101,12 @@ export default function PlaybackTools({ mediaType, id, season, episode, provider
                 className="w-full border border-white/20 bg-surface p-2 text-cream">
                 {LANGUAGE_CHOICES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
+            </label>
+            <label className="grid gap-1">
+              <span className="font-semibold text-cream">Minuto aproximado del problema (opcional)</span>
+              <input type="number" min="0" max="999" step="1" value={current.atMinute || ''}
+                onChange={(e) => updateSource('atMinute', e.target.value === '' ? '' : String(Math.max(0, Math.min(999, Number(e.target.value) || 0))))}
+                placeholder="Ej.: 12" className="w-full border border-white/20 bg-surface px-3 py-2 text-cream" />
             </label>
             <button type="button" onClick={copyReport}
               className="min-h-10 rounded-md border border-white/20 px-3 font-semibold text-cream hover:bg-white/10">
