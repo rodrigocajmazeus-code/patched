@@ -22,6 +22,7 @@ import CoveragePage from './pages/CoveragePage.jsx'
 import InventoryPage from './pages/InventoryPage.jsx'
 import SeriesPage from './pages/SeriesPage.jsx'
 import WatchPage from './pages/WatchPage.jsx'
+import LiveTvPage from './pages/LiveTvPage.jsx'
 import AudioLabPage from './pages/AudioLabPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import WatchPartyPage from './pages/WatchPartyPage.jsx'
@@ -50,6 +51,7 @@ export default function App() {
                   <Route path="/cobertura" element={<CoveragePage />} />
                   <Route path="/inventario" element={<InventoryPage />} />
                   <Route path="/series" element={<SeriesPage />} />
+                  <Route path="/tv" element={<LiveTvPage />} />
                   <Route path="/watch/:type/:id" element={<WatchPage />} />
                   <Route path="/laboratorio-audio" element={<AudioLabPage />} />
                   <Route path="/party" element={<WatchPartyPage />} />

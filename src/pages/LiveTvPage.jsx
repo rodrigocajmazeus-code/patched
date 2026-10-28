@@ -167,7 +167,7 @@ export default function LiveTvPage() {
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {matching.slice(0, visibleCount).map(channel =>
                   <ChannelCard key={channel.id} channel={channel} selected={selectedId === channel.id}
-                    favorite={favorites.includes(channel.id)} onSelect={setSelectedId} onFavorite={toggleFavorite} />
+                    favorite={favorites.includes(channel.id)} onSelect={item => setSelectedId(item.id)} onFavorite={toggleFavorite} />
                 )}
               </div>
               {matching.length > visibleCount && <div className="mt-7 flex justify-center"><button type="button" onClick={() => setVisibleCount(n => n + 40)} className="rounded-md border border-white/20 px-5 py-3 text-sm font-semibold hover:bg-white/10">Cargar más canales ({matching.length - visibleCount} restantes)</button></div>}

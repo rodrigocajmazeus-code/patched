@@ -6,6 +6,7 @@ const routes = [
   { to: '/anime', text: 'Anime', icon: 'tv' },
   { to: '/series', text: 'Series', icon: 'tv' },
   { to: '/movies', text: 'Películas', icon: 'film' },
+  { to: '/tv', text: 'TV', icon: 'tv' },
   { to: '/search', text: 'Buscar', icon: 'search' },
 ]
 
