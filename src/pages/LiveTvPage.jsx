@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LiveTvPlayer from '../components/LiveTvPlayer.jsx'
 import VirtualChannelGrid from '../components/VirtualChannelGrid.jsx'
+import PeruCableGuide from '../components/PeruCableGuide.jsx'
 import { fetchLiveCatalog, searchLiveChannels } from '../tv/catalog.js'
 
 const PERU_FIRST = ['PE', 'ES', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE']
@@ -129,6 +130,8 @@ export default function LiveTvPage() {
               className="w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">← Volver donde estaba en el catálogo</button>}
           </div>
         </section>
+
+        <PeruCableGuide />
 
         <section className="mt-8" aria-label="Explorar canales">
           <div className="flex flex-wrap items-center justify-between gap-3">
