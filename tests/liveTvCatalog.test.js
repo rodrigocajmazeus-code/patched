@@ -36,9 +36,12 @@ test('join sources and country details without marking them verified', () => {
   assert.equal(result.channels[0].countryName, 'Perú')
   assert.equal(result.channels[1].source, null)
 })
-test('exclude channels with no web page and no playable stream', () => {
+test('preserve active channels without web page or playable stream in full directory', () => {
   const result = buildLiveCatalog({ channels: [{ id: 'empty', name: 'Empty', country: 'PE' }] })
-  assert.equal(result.channels.length, 0)
+  assert.equal(result.channels.length, 1)
+  assert.equal(result.channels[0].source, null)
+  assert.equal(result.totals.directoryOnly, 1)
+  assert.equal(result.totals.candidates, 0)
 })
 test('filter by country, category, playable sources and favorites', () => {
   const rows = buildLiveCatalog({ channels, streams: [stream], countries }).channels
@@ -50,4 +53,32 @@ test('filter by country, category, playable sources and favorites', () => {
 test('search is accent insensitive', () => {
   const rows = buildLiveCatalog({ channels, streams: [stream], countries }).channels
   assert.equal(searchLiveChannels(rows, { query: 'musica' })[0].id, 'Other.es')
+})
+
+test('preserve alternate HTTPS streams when a channel has multiple choices', () => {
+  const alternative = { ...stream, url: 'https://backup.example.com/live/index.m3u8', labels: ['Geo-blocked'] }
+  const result = buildLiveCatalog({ channels, streams: [alternative, stream, stream], countries })
+  const channel = result.channels.find(item => item.id === 'Example.pe')
+  assert.equal(channel.sources.length, 2)
+  assert.equal(channel.source.url, stream.url)
+})
+
+test('do not conflate directory size with potentially playable channels', () => {
+  const result = buildLiveCatalog({ channels, streams: [stream], countries })
+  assert.equal(result.totals.listed, 2)
+  assert.equal(result.totals.candidates, 1)
+  assert.equal(result.totals.officialOnly, 1)
+})
+
+test('channels without a source are excluded only when playable-only is requested', () => {
+  const result = buildLiveCatalog({ channels, streams: [stream], countries })
+  assert.equal(searchLiveChannels(result.channels).length, 2)
+  assert.equal(searchLiveChannels(result.channels, { playableOnly: true }).length, 1)
+})
+
+test('catalog remains usable with missing optional country, logo, and category files', () => {
+  const result = buildLiveCatalog({ channels, streams: [stream] })
+  assert.equal(result.channels.length, 2)
+  assert.equal(result.channels[0].countryName, 'PE')
+  assert.deepEqual(result.categories, [])
 })
