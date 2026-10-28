@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import ControlledPlayer from '../components/ControlledPlayer.jsx'
+import InternationalTvCatalog from '../components/InternationalTvCatalog.jsx'
 import { LIVE_TEST_SOURCES, OFFICIAL_LIVE_CHANNELS, parseLiveHlsUrl } from '../data/liveSources.js'
 
 export default function LiveTVPage() {
@@ -21,6 +22,30 @@ export default function LiveTVPage() {
   function chooseSource(source) {
     setActiveStream(source)
     setCustomError('')
+  }
+
+  function playDirectoryChannel(channel) {
+    const source = channel.sources[0]
+    if (!source) return
+    chooseSource({
+      id: source.id,
+      name: channel.name,
+      url: source.url,
+      detail: 'Fuente candidata publicada en IPTV-org; sin reproducción verificada. ' +
+        (source.labels.length ? 'Avisos: ' + source.labels.join(', ') + '. ' : '') +
+        'Pueden aplicarse restricciones de origen y geográficas.',
+      alternatives: channel.sources,
+    })
+    // La lista puede estar varios pantallazos más abajo del reproductor en móvil.
+    requestAnimationFrame(() => document.getElementById('tv-live-player')?.scrollIntoView({
+      behavior: 'smooth', block: 'start',
+    }))
+  }
+
+  function changeDirectorySource(value) {
+    const source = activeStream?.alternatives?.find(item => item.id === value)
+    if (!source) return
+    setActiveStream(prev => ({ ...prev, id: source.id, url: source.url }))
   }
 
   function playCustomSource(event) {
@@ -56,7 +81,7 @@ export default function LiveTVPage() {
 
       <div className="mt-9 grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(290px,1fr)]">
         <div className="min-w-0 space-y-4">
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-[#121916]">
+          <div id="tv-live-player" className="scroll-mt-24 overflow-hidden rounded-xl border border-white/10 bg-[#121916]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
               <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
                 <span className="h-2 w-2 rounded-full bg-red-400" aria-hidden="true" />
@@ -74,6 +99,15 @@ export default function LiveTVPage() {
                   <p className="max-w-xs text-xs leading-5 text-white/45">No se descargará vídeo hasta que selecciones una fuente.</p>
                 </div>}
           </div>
+          {activeStream?.alternatives?.length > 1 && <label className="block text-xs text-white/70">
+            <span className="mb-1 block">Fuente alternativa para este canal</span>
+            <select value={activeStream.id} onChange={e => changeDirectorySource(e.target.value)}
+              className="w-full rounded border border-white/20 bg-[#18231e] px-3 py-3 text-xs">
+              {activeStream.alternatives.map((source, index) => <option key={source.id} value={source.id}>
+                Señal {index + 1}{source.quality ? ' · ' + source.quality : ''}{source.labels.length ? ' · ' + source.labels.join(', ') : ''}
+              </option>)}
+            </select>
+          </label>}
           {activeStream && <p className="text-xs leading-6 text-white/55" role="status">
             {activeStream.detail} Si no reproduce, puede ser por CORS, formato, geobloqueo
             o disponibilidad. La carga del manifiesto no equivale a reproducción confirmada.
@@ -161,6 +195,7 @@ export default function LiveTVPage() {
           </section>
         </div>
       </div>
+      <InternationalTvCatalog onPlayChannel={playDirectoryChannel} />
       <p className="mt-8 max-w-3xl border-t border-white/10 pt-5 text-xs leading-6 text-white/45">
         Una señal pública y gratuita no concede automáticamente derecho a incrustarla o redistribuirla.
         Este módulo solo incorpora streams publicados para pruebas técnicas y enlaces oficiales externos.
