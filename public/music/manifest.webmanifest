@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "ONDA — Tu música",
+  "short_name": "ONDA",
+  "description": "Descubre y escucha música en tu celular, con favoritos y archivos locales.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111211",
+  "theme_color": "#111211",
+  "icons": [
+    {"src": "./icons/onda-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "./icons/onda-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+    {"src": "./icons/onda.svg", "sizes": "any", "type": "image/svg+xml"}
+  ]
+}
