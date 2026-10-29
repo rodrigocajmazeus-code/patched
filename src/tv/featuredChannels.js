@@ -2,7 +2,7 @@
 // A listing never asserts that PATCHED has a licensed or verified stream.
 const MOVISTAR = 'https://www.movistar.com.pe/tv-en-vivo'
 const MOVISTAR_APP = 'https://www.movistar.com.pe/movistar-tv-app'
-const DISNEY = 'https://www.disneyplus.com/'
+const DISNEY = 'https://www.disneyplus.com/es-pe'
 const official = (id, name, category, url, note, extra = {}) =>
   ({ id, name, category, access: 'web', links: [{ label: 'Abrir transmisión o portal oficial', url }], note, ...extra })
 const cable = (id, name, category, channelNumber, note = '') =>

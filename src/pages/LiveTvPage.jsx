@@ -58,7 +58,7 @@ export default function LiveTvPage() {
   const [selectedId, setSelectedId] = useState('tvperu')
   const filtered = useMemo(() => filterFeaturedChannels(FEATURED_CHANNELS, { category, query, freeOnly })
     .filter(c => !favoritesOnly || favorites.includes(c.id)), [category, query, freeOnly, favoritesOnly, favorites])
-  const selected = FEATURED_CHANNELS.find(c => c.id === selectedId) || FEATURED_CHANNELS[0]
+  const selected = filtered.find(c => c.id === selectedId) || filtered[0] || FEATURED_CHANNELS[0]
 
   const toggleFavorite = id => {
     const next = favorites.includes(id) ? favorites.filter(item => item !== id) : [...favorites, id].slice(0, 80)
