@@ -401,7 +401,8 @@ function PlayerView({
   relatedItems,
 }) {
   const containerRef = useRef(null)
-  const { providers, playbackPreference, setPlaybackPreference, restrictedFrames, setRestrictedFrames } = useProvider()
+  const { providers, playbackPreference, setPlaybackPreference, restrictedFrames, setRestrictedFrames,
+    excludedProviders, setExcludedProviders } = useProvider()
   const [autoFallback, setAutoFallback] = useState(false)
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [playerReload, setPlayerReload] = useState(0)
@@ -433,6 +434,15 @@ function PlayerView({
   const routing = languageRouting(providerId, playbackPreference, requestedVariant)
   const nextProvider = nextAvailableProvider(providerId, selection.candidates, PRIMARY_PROVIDER_ORDER)
   const nextProviderName = 'Opción ' + (PRIMARY_PROVIDER_ORDER.indexOf(nextProvider) + 1)
+  const currentProviderName = providers.find(item => item.id === providerId)?.name || 'Fuente no seleccionada'
+  const avoidSource = () => {
+    if (!providerId || excludedProviders.includes(providerId)) return
+    // Persistently avoid this iframe: a pre-roll inside third-party video cannot be removed by the parent page.
+    setExcludedProviders([...excludedProviders, providerId])
+  }
+  const restoreSource = id => {
+    setExcludedProviders(excludedProviders.filter(item => item !== id))
+  }
   useEffect(() => {
     setFrameLoaded(false)
     setFrameErrorUrl(null)
@@ -657,7 +667,20 @@ function PlayerView({
 
       {mode === 'content' && (
         <section className="mx-auto w-full max-w-screen-2xl border-b border-white/10 bg-[#111c16] px-4 py-3 sm:px-6 lg:px-10" aria-label="Protección frente a interrupciones externas">
-          <p className="text-xs font-bold text-cream">Reducir interrupciones del reproductor</p>
+          <p className="text-xs font-bold text-cream">Evitar publicidad de reproductores externos</p>
+          <p className="mt-2 text-xs leading-5 text-mist">Fuente actualmente abierta: <strong className="text-cream">{providerId ? `${currentProviderName} (opción ${PRIMARY_PROVIDER_ORDER.indexOf(providerId) + 1})` : 'ninguna'}</strong>. Si ese iframe muestra anuncios como el de Halloween, puedes excluirlo. La exclusión se guarda para todos los capítulos y siguientes visitas en este navegador.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {providerId && <button type="button" onClick={avoidSource}
+              className="min-h-11 rounded-md border border-amber-300/30 bg-amber-200/10 px-4 text-xs font-bold text-amber-100 hover:bg-amber-200/20">
+              Dejar de usar esta opción por anuncios
+            </button>}
+            {PRIMARY_PROVIDER_ORDER.filter(sourceId => excludedProviders.includes(sourceId)).map(sourceId =>
+              <button key={sourceId} type="button" onClick={() => restoreSource(sourceId)}
+                className="min-h-11 rounded-md border border-white/20 px-3 text-xs font-semibold text-cream hover:bg-white/10">
+                Reactivar opción {PRIMARY_PROVIDER_ORDER.indexOf(sourceId) + 1}
+              </button>
+            )}
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3">
             <label className="inline-flex items-center gap-2 text-xs text-cream/85">
               <input type="checkbox" checked={restrictedFrames}
@@ -665,7 +688,7 @@ function PlayerView({
                   if (providerId) setProvider(providerId)
                   setRestrictedFrames(event.target.checked)
                 }} />
-              Probar bloqueo de ventanas emergentes (experimental)
+              Restringir ventanas emergentes (no elimina anuncios de video)
             </label>
             <label className="inline-flex items-center gap-2 text-xs text-cream/85">
               <input type="checkbox" checked={autoFallback} onChange={event => setAutoFallback(event.target.checked)} />
@@ -673,7 +696,7 @@ function PlayerView({
             </label>
           </div>
           <p className="mt-2 text-[11px] leading-5 text-mist">
-            El bloqueo de ventanas limita algunas acciones del iframe, pero no quita anuncios incluidos en el video.
+            La restricción de ventanas limita algunas acciones del iframe, pero no quita anuncios incluidos en el video.
             Algunas fuentes pueden negarse a reproducir con este modo; VidRift y VidCloud no son compatibles.
             Para evitar que se reinicie otro reproductor y vuelva a salir publicidad, el cambio automático está desactivado inicialmente.
           </p>
@@ -690,6 +713,7 @@ function PlayerView({
       {mode === 'content' && (
         <section className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center gap-2 border-b border-white/10 px-4 py-3 sm:px-6 lg:px-10" aria-label="Servidores de reproducción">
           <span className="mr-2 text-xs font-semibold text-mist">Portales disponibles</span>
+          {PRIMARY_PROVIDER_ORDER.every(id => excludedProviders.includes(id)) && <span role="status" className="text-xs font-semibold text-amber-100">Excluiste todas las fuentes principales. Puedes reactivar alguna arriba o usar un enlace externo guardado.</span>}
           {PRIMARY_PROVIDER_ORDER.map((sourceId, index) => {
             const candidate = selection.candidates.find(c => c.providerId === sourceId)
             return <button key={sourceId} type="button" disabled={!candidate?.available}
