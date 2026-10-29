@@ -1,242 +1,157 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import LiveTvPlayer from '../components/LiveTvPlayer.jsx'
-import VirtualChannelGrid from '../components/VirtualChannelGrid.jsx'
-import PeruCableGuide from '../components/PeruCableGuide.jsx'
-import { fetchLiveCatalog, searchLiveChannels } from '../tv/catalog.js'
+import { useMemo, useState } from 'react'
+import { FEATURED_CHANNELS, FEATURED_TV_FILTERS, TV_ACCESS, filterFeaturedChannels } from '../tv/featuredChannels.js'
 
-const PERU_FIRST = ['PE', 'ES', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE']
-const LATAM = new Set(['PE', 'MX', 'CO', 'AR', 'CL', 'EC', 'VE', 'BO', 'UY', 'PY', 'BR', 'CR', 'PA', 'GT', 'HN', 'SV', 'NI', 'DO', 'CU', 'HT', 'PR'])
-const CATEGORY_NAMES = {
-  general: 'General', news: 'Noticias', sports: 'Deportes', movies: 'Películas',
-  entertainment: 'Entretenimiento', music: 'Música', documentary: 'Documentales',
-  kids: 'Infantil', education: 'Educación', animation: 'Animación', culture: 'Cultura',
-  lifestyle: 'Estilo de vida', religious: 'Religión', cooking: 'Cocina', travel: 'Viajes',
-  business: 'Negocios', outdoor: 'Aire libre', science: 'Ciencia',
-}
-
-function savedFavorites() {
+function readSaved() {
   try {
-    const value = JSON.parse(window.localStorage.getItem('patched.live-tv.favorites.v1') || '[]')
-    return Array.isArray(value) ? value.filter(item => typeof item === 'string').slice(0, 400) : []
+    const saved = JSON.parse(localStorage.getItem('patched.tv.editorial.favorites.v1') || '[]')
+    return Array.isArray(saved) ? saved.filter(id => typeof id === 'string').slice(0, 80) : []
   } catch {
     return []
   }
 }
 
+const accessStyles = {
+  web: 'border-emerald-200/25 text-[#b4d7be]',
+  operator: 'border-white/20 text-mist',
+  premium: 'border-amber-200/25 text-[#f1d7a5]',
+}
+const colorStyles = {
+  peru: 'from-[#193b35] to-[#111e1c]',
+  infantil: 'from-[#354039] to-[#1b2020]',
+  deportes: 'from-[#314034] to-[#17231b]',
+  peliculas: 'from-[#342f38] to-[#19191e]',
+  gratis: 'from-[#1d3e3c] to-[#182322]',
+}
+
+function ChannelTile({ channel, chosen, starred, onSelect, onStar }) {
+  return (
+    <div className={'relative rounded-xl border bg-[#18221d] transition ' +
+      (chosen ? 'border-brand' : 'border-white/10 hover:border-white/30')}>
+      <button type="button" aria-pressed={chosen} onClick={() => onSelect(channel.id)}
+        className="w-full overflow-hidden rounded-xl text-left">
+        <div className={'flex h-24 items-end bg-gradient-to-br px-4 py-3 ' + (colorStyles[channel.category] || colorStyles.peru)}>
+          <span className="max-w-[90%] text-xl font-extrabold tracking-tight text-cream sm:text-2xl">{channel.name}</span>
+        </div>
+        <div className="flex flex-col gap-2 p-3">
+          <span className={'w-fit rounded-full border px-2 py-1 text-[10px] font-semibold ' + accessStyles[channel.access]}>
+            {TV_ACCESS[channel.access].title}
+          </span>
+          <span className="line-clamp-2 min-h-10 text-xs leading-5 text-mist">{channel.note}</span>
+        </div>
+      </button>
+      <button type="button" aria-label={(starred ? 'Quitar de favoritos: ' : 'Agregar a favoritos: ') + channel.name}
+        aria-pressed={starred} onClick={() => onStar(channel.id)}
+        className="absolute right-2 top-2 rounded-full border border-white/20 bg-black/50 px-2.5 py-1.5 text-lg text-white">
+        {starred ? '♥' : '♡'}
+      </button>
+    </div>
+  )
+}
+
 export default function LiveTvPage() {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [reload, setReload] = useState(0)
+  const [category, setCategory] = useState('destacados')
   const [query, setQuery] = useState('')
-  const [country, setCountry] = useState('all')
-  const [category, setCategory] = useState('all')
-  const [playableOnly, setPlayableOnly] = useState(false)
+  const [freeOnly, setFreeOnly] = useState(false)
   const [favoritesOnly, setFavoritesOnly] = useState(false)
-  const [region, setRegion] = useState('world')
-  const [sourceIndex, setSourceIndex] = useState(0)
-  const [autoSwitch, setAutoSwitch] = useState(true)
-  const [lastIssue, setLastIssue] = useState(null)
-  const [playingSource, setPlayingSource] = useState('')
-  const [retry, setRetry] = useState(0)
-  const [favorites, setFavorites] = useState(savedFavorites)
-  const [selectedId, setSelectedId] = useState(null)
-  const [returnScroll, setReturnScroll] = useState(null)
-  const playerAreaRef = useRef(null)
+  const [favorites, setFavorites] = useState(readSaved)
+  const [selectedId, setSelectedId] = useState('tvperu')
+  const filtered = useMemo(() => filterFeaturedChannels(FEATURED_CHANNELS, { category, query, freeOnly })
+    .filter(c => !favoritesOnly || favorites.includes(c.id)), [category, query, freeOnly, favoritesOnly, favorites])
+  const selected = FEATURED_CHANNELS.find(c => c.id === selectedId) || FEATURED_CHANNELS[0]
 
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError('')
-    fetchLiveCatalog().then(result => {
-      if (active) {
-        setData(result)
-        setLoading(false)
-      }
-    }).catch(() => {
-      if (active) {
-        setError('No se pudo cargar el directorio internacional. Comprueba tu conexión y vuelve a intentarlo.')
-        setLoading(false)
-      }
-    })
-    return () => { active = false }
-  }, [reload])
-
-  useEffect(() => {
-    try { window.localStorage.setItem('patched.live-tv.favorites.v1', JSON.stringify(favorites)) } catch { /* storage disabled */ }
-  }, [favorites])
-
-  const options = useMemo(() => (data?.countries || [])
-    .filter(item => new Set(data.channels.map(c => c.country)).has(item.code))
-    .sort((a, b) => {
-      const ai = PERU_FIRST.indexOf(a.code)
-      const bi = PERU_FIRST.indexOf(b.code)
-      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || a.name.localeCompare(b.name)
-    }), [data])
-
-  const matching = useMemo(() => {
-    const matches = searchLiveChannels(data?.channels || [], {
-      query, country, category, playableOnly, favoritesOnly, favorites,
-    })
-    return region === 'latam' ? matches.filter(channel => LATAM.has(channel.country)) : matches
-  }, [data, query, country, category, playableOnly, favoritesOnly, favorites, region])
-
-  const selected = useMemo(() => data?.channels.find(item => item.id === selectedId) || null, [data, selectedId])
-  const playbackChannel = useMemo(() => selected ? {
-    ...selected,
-    source: selected.sources?.[sourceIndex] || selected.source,
-  } : null, [selected, sourceIndex])
-  const candidates = data?.totals?.candidates || 0
-  const providerCandidates = data?.totals?.providerCandidates || {}
-  const toggleFavorite = id => setFavorites(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id].slice(0, 400))
-  const updateFilter = setter => value => setter(value)
-  const selectChannel = item => {
-    setReturnScroll(window.scrollY)
-    setSelectedId(item.id)
-    setSourceIndex(0)
-    setLastIssue(null)
-    setPlayingSource('')
-    setRetry(0)
-    playerAreaRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
-  }
-  const onSourceError = issue => {
-    if (!selected?.sources?.[sourceIndex] || selected.sources[sourceIndex].url !== issue.url) return
-    const hasNext = sourceIndex + 1 < selected.sources.length
-    setLastIssue({ ...issue, switched: autoSwitch && hasNext })
-    setPlayingSource('')
-    if (autoSwitch && hasNext) setSourceIndex(sourceIndex + 1)
-  }
-  const onSourcePlaying = url => {
-    if (selected?.sources?.[sourceIndex]?.url === url) {
-      setPlayingSource(url)
-      setLastIssue(null)
-    }
-  }
-  const pickSource = index => {
-    setSourceIndex(index)
-    setLastIssue(null)
-    setPlayingSource('')
-    setRetry(x => x + 1)
-  }
-  const pickRegion = (value, selectedCountry = 'all') => {
-    setRegion(value)
-    setCountry(selectedCountry)
+  const toggleFavorite = id => {
+    const next = favorites.includes(id) ? favorites.filter(item => item !== id) : [...favorites, id].slice(0, 80)
+    setFavorites(next)
+    try { localStorage.setItem('patched.tv.editorial.favorites.v1', JSON.stringify(next)) } catch { /* optional storage */ }
   }
 
   return (
     <div className="min-h-screen bg-ink px-4 pb-28 pt-28 text-cream sm:px-6 lg:px-10">
       <div className="mx-auto max-w-screen-2xl">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-7">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[.24em] text-brand">PATCHED · Señales del mundo</p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">TV en vivo</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-mist">Un directorio internacional para encontrar y probar canales abiertos. El catálogo no equivale a una lista de señales verificadas: algunas pueden fallar, estar restringidas por país o no permitir reproducción externa.</p>
-          </div>
-          <div className="rounded-full border border-white/20 px-3 py-1.5 text-[11px] font-semibold text-[#a9d7ae]">● LABORATORIO</div>
+        <div className="border-b border-white/10 pb-6">
+          <p className="text-[10px] font-bold uppercase tracking-[.24em] text-brand">PATCHED · Televisión seleccionada</p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">TV en vivo</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-mist">
+            Solo los canales que importan. Accede a señales abiertas y portales gratuitos, o encuentra dónde ver
+            Disney, ESPN y otros canales de cable desde Perú. Sin miles de fichas vacías ni reproductores falsos.
+          </p>
         </div>
 
-        <section ref={playerAreaRef} className="mt-6 grid scroll-mt-24 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(280px,.65fr)]" aria-label="Reproductor de TV">
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
-            <LiveTvPlayer key={(selectedId || 'none') + ':' + retry} channel={playbackChannel}
-              onSourceError={onSourceError} onSourcePlaying={onSourcePlaying} />
-          </div>
-          <div className="flex flex-col justify-center gap-3 rounded-xl border border-white/10 bg-[#18221e] p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-brand">Señal seleccionada</p>
-            <h2 className="text-2xl font-semibold text-cream">{selected?.name || 'Elige un canal'}</h2>
-            <p className="text-xs leading-6 text-mist">{selected ? selected.flag + ' ' + selected.countryName : 'Busca por nombre, país o categoría. Los canales marcados con señal pueden probarse directamente en PATCHED.'}</p>
-            {playbackChannel?.source && <p className="text-xs text-mist">Fuente: {playbackChannel.source.provider || 'IPTV-org'} · Formato: {playbackChannel.source.type.toUpperCase()}{playbackChannel.source.quality ? ' · ' + playbackChannel.source.quality : ''}{playbackChannel.source.labels?.length ? ' · ' + playbackChannel.source.labels.join(', ') : ''}</p>}
-            {selected?.sources?.length > 1 && <label className="grid gap-1 text-xs text-mist">
-              Fuente de emisión ({sourceIndex + 1}/{selected.sources.length} · sin verificar)
-              <select value={sourceIndex} onChange={e => pickSource(Number(e.target.value))}
-                className="w-full rounded-md border border-white/15 bg-[#0f1914] px-3 py-2.5 text-sm text-cream">
-                {selected.sources.map((source, index) => <option key={source.url} value={index}>{source.provider || 'IPTV-org'} · opción {index + 1}{source.quality ? ' · ' + source.quality : ''}{source.labels?.length ? ' · ' + source.labels.join(', ') : ''}</option>)}
-              </select>
-            </label>}
-            {selected?.sources?.length > 1 && <label className="flex items-center gap-2 text-xs text-mist">
-              <input type="checkbox" checked={autoSwitch} onChange={e => setAutoSwitch(e.target.checked)} />
-              Cambiar automáticamente a otra señal cuando falle
-            </label>}
-            {playingSource && <p role="status" className="text-xs text-[#a9d7ae]">Reproduciendo señal {sourceIndex + 1}. Esto no garantiza que funcione siempre.</p>}
-            {lastIssue && <div role="status" className="rounded-md border border-amber-200/20 bg-amber-400/5 p-3 text-xs leading-5 text-[#efcf9e]">
-              {lastIssue.switched ? 'Falló la señal anterior; probando la siguiente. Puede ser necesario pulsar reproducir otra vez.' : 'Falló la señal actual.'}
-              {' '}Tipo: {lastIssue.type}{lastIssue.status ? ' · HTTP ' + lastIssue.status : ''}{lastIssue.detail ? ' · ' + lastIssue.detail : ''}.
-              {selected?.sources?.length > 1 && <button type="button" className="mt-2 block underline" onClick={() => pickSource((sourceIndex + 1) % selected.sources.length)}>Probar otra señal manualmente</button>}
-            </div>}
-            {playbackChannel?.source && <button type="button" onClick={() => pickSource(sourceIndex)}
-              className="w-fit rounded-md border border-white/20 px-4 py-2 text-xs font-semibold text-cream hover:bg-white/10">Reintentar esta señal</button>}
-            {selected?.website && <a href={selected.website} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">Abrir página oficial ↗</a>}
-            {playbackChannel?.source && <p className="text-xs leading-5 text-mist">Si no carga, prueba otra señal registrada del canal. También puede fallar por CORS, región o caída de la fuente; no usamos proxies para sortear restricciones.</p>}
-            {returnScroll !== null && <button type="button" onClick={() => window.scrollTo({ top: returnScroll, behavior: 'auto' })}
-              className="w-fit rounded-md border border-white/20 px-4 py-2.5 text-xs font-bold text-cream hover:bg-white/10">← Volver donde estaba en el catálogo</button>}
-          </div>
-        </section>
-
-        <PeruCableGuide />
-
-        <section className="mt-8" aria-label="Explorar canales">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,.85fr)]" aria-label="Canal seleccionado">
+          <div className="flex min-h-[235px] flex-col justify-between rounded-xl border border-white/10 bg-gradient-to-br from-[#263f34] via-[#15231d] to-[#0e1614] p-5 sm:p-7">
             <div>
-              <h2 className="text-xl font-semibold">Explorar canales</h2>
-              <p className="mt-1 text-xs text-mist">{loading ? 'Consultando emisoras…' : data ? data.channels.length.toLocaleString('es-PE') + ' canales listados · ' + candidates.toLocaleString('es-PE') + ' con señal candidata (sin verificar)' : 'Directorio pendiente'}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[.17em] text-brand">Seleccionado</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{selected.name}</h2>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-cream/75">{selected.note}</p>
+              {selected.number && <p className="mt-3 text-xs text-[#b4d7be]">Movistar TV: canal {selected.number} (según plan)</p>}
             </div>
-            <a href="https://github.com/iptv-org/iptv" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand hover:underline">Directorio original ↗</a>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {selected.links.map(link => <a key={link.url + link.label} href={link.url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center rounded-md border border-brand/30 bg-brand px-4 py-2 text-xs font-bold text-[#101614] hover:bg-brand-hover">
+                {link.label} ↗
+              </a>)}
+            </div>
           </div>
-          {data && <p className="mt-2 text-xs leading-5 text-mist">Fuentes candidatas por proveedor: IPTV-org {providerCandidates['IPTV-org'] || 0} · TDTChannels {providerCandidates.TDTChannels || 0} · Free-TV {providerCandidates['Free-TV'] || 0}. Una misma cadena puede aparecer en varios proveedores; estos números no indican reproducciones verificadas.</p>}
-          <div className="mt-5 flex flex-wrap gap-2" aria-label="Regiones">
-            {[
-              { id: 'world', country: 'all', label: '🌍 Todo el mundo' },
-              { id: 'world', country: 'PE', label: '🇵🇪 Perú' },
-              { id: 'latam', country: 'all', label: '🌎 Latinoamérica' },
-              { id: 'world', country: 'ES', label: '🇪🇸 España' },
-            ].map(item => <button key={item.label} type="button"
-              aria-pressed={region === item.id && country === item.country}
-              onClick={() => pickRegion(item.id, item.country)}
-              className={'rounded-full border px-3 py-2 text-xs font-semibold transition ' + (region === item.id && country === item.country ? 'border-brand bg-brand/15 text-cream' : 'border-white/15 text-mist hover:border-white/35 hover:text-cream')}>
-              {item.label}
-            </button>)}
+          <div className="flex flex-col justify-center rounded-xl border border-white/10 bg-[#19241e] p-5 sm:p-7">
+            <p className="text-[10px] font-bold uppercase tracking-[.17em] text-brand">Cómo verlo</p>
+            <h3 className="mt-3 text-xl font-semibold">{TV_ACCESS[selected.access].title}</h3>
+            <p className="mt-2 text-sm leading-6 text-mist">{TV_ACCESS[selected.access].description}</p>
+            <p className="mt-4 text-xs leading-5 text-mist">
+              PATCHED abre la plataforma correspondiente en otra pestaña. Si el canal requiere una cuenta,
+              la autenticación y la reproducción se gestionan en el sitio oficial.
+            </p>
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_190px_190px]">
-            <label className="grid gap-1 text-xs text-mist">
-              Buscar canal
-              <input type="search" value={query} onChange={e => updateFilter(setQuery)(e.target.value)}
-                placeholder="Nombre de canal o país…" className="w-full rounded-md border border-white/15 bg-[#1b2922] px-3 py-3 text-sm text-cream outline-none focus:border-brand" />
-            </label>
-            <label className="grid gap-1 text-xs text-mist">
-              País
-              <select value={country} onChange={e => { setRegion('world'); updateFilter(setCountry)(e.target.value) }}
-                className="w-full rounded-md border border-white/15 bg-[#1b2922] px-3 py-3 text-sm text-cream">
-                <option value="all">Todos los países</option>
-                {options.map(c => <option key={c.code} value={c.code}>{c.flag} {c.name}</option>)}
-              </select>
-            </label>
-            <label className="grid gap-1 text-xs text-mist">
-              Categoría
-              <select value={category} onChange={e => updateFilter(setCategory)(e.target.value)}
-                className="w-full rounded-md border border-white/15 bg-[#1b2922] px-3 py-3 text-sm text-cream">
-                <option value="all">Todas las categorías</option>
-                {data?.categories.map(c => <option key={c.id} value={c.id}>{CATEGORY_NAMES[c.id] || c.name}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-cream/85">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={playableOnly} onChange={e => updateFilter(setPlayableOnly)(e.target.checked)} /> Solo señales para intentar reproducir</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={favoritesOnly} onChange={e => updateFilter(setFavoritesOnly)(e.target.checked)} /> Mis favoritos ({favorites.length})</label>
-            {!loading && data && <span className="font-semibold text-brand">{matching.length.toLocaleString('es-PE')} canales disponibles para explorar · sin paginación</span>}
-          </div>
-
-          {loading && <p role="status" className="mt-10 rounded-lg border border-white/10 bg-[#18221e] px-5 py-8 text-sm text-mist">Cargando canales, emisoras y señales…</p>}
-          {!loading && error && <div role="alert" className="mt-8 rounded-lg border border-white/10 bg-[#18221e] p-5"><p className="text-sm text-mist">{error}</p><button type="button" onClick={() => setReload(x => x + 1)} className="mt-3 rounded-md bg-brand px-4 py-2 text-sm font-bold text-black">Volver a intentar</button></div>}
-          {!loading && !error && matching.length === 0 && <p className="mt-8 rounded-lg border border-white/10 bg-[#18221e] p-5 text-sm text-mist">No hay resultados con esos filtros. Prueba otra región o desmarca «Solo señales para intentar reproducir».</p>}
-          {!loading && !error && matching.length > 0 && (
-            <>
-              <p className="mt-4 text-xs leading-5 text-mist">Toda la lista está disponible desde ahora: desliza para recorrerla sin pulsar «Cargar más». Para cuidar tu celular, PATCHED dibuja únicamente las tarjetas cercanas a tu pantalla.</p>
-              <VirtualChannelGrid channels={matching} selectedId={selectedId} favorites={favorites}
-                onSelect={selectChannel} onFavorite={toggleFavorite} />
-            </>
-          )}
         </section>
 
-        <p className="mt-12 border-t border-white/10 pt-5 text-xs leading-6 text-mist">Directorio de <a className="text-brand hover:underline" href="https://github.com/iptv-org/api" target="_blank" rel="noopener noreferrer">IPTV-org</a>, con señales adicionales candidatas de <a href="https://www.tdtchannels.com/listas/" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">TDTChannels</a> y <a href="https://github.com/Free-TV/IPTV" target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">Free-TV</a>. Este módulo no aloja emisiones, no certifica su disponibilidad ni verifica los derechos de cada enlace. Las señales dependen de terceros; para el acceso autorizado y estable, utiliza el sitio oficial de cada canal. Los favoritos se guardan solo en este navegador.</p>
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-semibold">Canales principales</h2>
+          <p className="text-xs text-mist">{FEATURED_CHANNELS.length} opciones seleccionadas, no miles de enlaces sin comprobar</p>
+        </div>
+
+        <nav className="mt-4 flex gap-2 overflow-x-auto pb-2" aria-label="Filtrar canales">
+          {FEATURED_TV_FILTERS.map(item => <button type="button" key={item.id} onClick={() => setCategory(item.id)}
+            aria-pressed={category === item.id}
+            className={'shrink-0 rounded-full border px-4 py-2.5 text-xs font-semibold ' +
+              (category === item.id ? 'border-brand bg-brand/15 text-cream' : 'border-white/15 text-mist hover:text-cream')}>
+            {item.label}
+          </button>)}
+        </nav>
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <label className="grid min-w-[180px] flex-1 gap-2 text-xs text-mist">Buscar
+            <input type="search" value={query} onChange={e => { setQuery(e.target.value); if (e.target.value.trim()) setCategory('todos') }}
+              placeholder="Disney, ESPN, HBO, TVPerú…" className="min-h-11 rounded-md border border-white/15 bg-[#19251e] px-3 text-sm text-cream focus:border-brand focus:outline-none" />
+          </label>
+          <label className="inline-flex min-h-11 items-center gap-2 text-xs text-cream/85">
+            <input type="checkbox" checked={freeOnly} onChange={e => setFreeOnly(e.target.checked)} /> Portales abiertos o gratuitos
+          </label>
+          <label className="inline-flex min-h-11 items-center gap-2 text-xs text-cream/85">
+            <input type="checkbox" checked={favoritesOnly} onChange={e => setFavoritesOnly(e.target.checked)} /> Favoritos ({favorites.length})
+          </label>
+        </div>
+        <p className="mt-3 text-xs text-mist">{filtered.length} resultados. Los canales premium se muestran como accesos, no como transmisiones gratuitas.</p>
+
+        {filtered.length ? (
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {filtered.map(channel => <ChannelTile key={channel.id} channel={channel}
+              chosen={selected.id === channel.id} starred={favorites.includes(channel.id)}
+              onSelect={setSelectedId} onStar={toggleFavorite} />)}
+          </div>
+        ) : <p className="mt-5 rounded-xl border border-white/10 bg-[#19241e] p-6 text-sm text-mist">
+          No hay canales con esos filtros. Desmarca «Portales abiertos o gratuitos» o selecciona «Todos».
+        </p>}
+
+        <section className="mt-10 rounded-xl border border-white/10 bg-[#17201b] p-5">
+          <h2 className="text-lg font-semibold">Por qué no se reproducen aquí ESPN y Disney</h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-mist">
+            La programación de pago se entrega mediante los sistemas de sus respectivos titulares y operadores.
+            Es posible abrir sus aplicaciones oficiales desde PATCHED y usar una suscripción existente.
+            No disponemos de una interfaz autorizada para insertar esas señales directamente en nuestro reproductor.
+          </p>
+          <p className="mt-3 text-xs leading-5 text-mist">
+            Si buscas televisión gratuita similar, prueba Pluto TV, Plex o la televisión pública peruana.
+            No ofrecen necesariamente los mismos contenidos de ESPN o Disney Channel.
+          </p>
+        </section>
       </div>
     </div>
   )
