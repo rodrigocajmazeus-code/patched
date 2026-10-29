@@ -27,3 +27,11 @@ test('frame restriction can change without throwing away the current source', ()
   assert.equal(providerContinuityScope({ ...base, restrictedFrames: false }),
     providerContinuityScope({ ...base, restrictedFrames: true }))
 })
+
+
+test('VidRift defaults to muted autoplay instead of requiring a click', async () => {
+  const { buildVidRiftUrl } = await import('../src/player/providers/vidrift.js')
+  const url = buildVidRiftUrl({ mediaType: 'tv', id: 1429, season: 1, episode: 23 })
+  assert.equal(url, 'https://embed.vidrift.net/embed/tv/1429/1/23')
+  assert.equal(new URL(url).searchParams.has('autoplay'), false)
+})

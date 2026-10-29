@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useProvider } from '../context/ProviderContext.jsx'
 import { providerContinuityScope } from '../player/providerContinuity.js'
+import { readRememberedProvider, saveRememberedProvider } from '../player/providerMemory.js'
 import { applyPreferredOrder, optionsForPreference, selectEpisodeProvider } from '../player/providerSelection.js'
 
 export function useEpisodeProvider(request) {
@@ -15,10 +16,14 @@ export function useEpisodeProvider(request) {
     options: providerOptions, excluded: excludedProviders, restricted: restrictedFrames }), playbackPreference, restrictedFrames)
   const manualActive = manual?.scope === scope && (!manual.providerId ||
     selection.candidates.some(candidate => candidate.providerId === manual.providerId && candidate.available))
-  const providerId = manualActive ? manual.providerId : selection.providerId
+  const remembered = readRememberedProvider(request)
+  const rememberedAvailable = remembered &&
+    selection.candidates.some(c => c.providerId === remembered && c.available)
+  const providerId = manualActive ? manual.providerId : rememberedAvailable ? remembered : selection.providerId
   const setProvider = id => {
     if (id && !selection.candidates.some(c => c.providerId === id && c.available)) return
     setManual({ scope, providerId: id || null })
+    saveRememberedProvider(request, id || null)
     if (id) context.setProvider(id)
   }
   return { ...context, providerOptions, providerId, setProvider, selection,

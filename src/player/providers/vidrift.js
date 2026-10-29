@@ -7,7 +7,9 @@ export function buildVidRiftUrl(request) {
     return Number(value)
   }
   const path = request.mediaType === 'tv' ? `tv/${positive(request.id)}/${positive(request.season)}/${positive(request.episode)}` : `movie/${positive(request.id)}`
-  return `${VIDRIFT_ORIGIN}/embed/${path}?autoplay=0`
+  // The documented default attempts muted autoplay, avoiding a forced extra click.
+  // Do not add autoplay=0: it deliberately disables the provider's start behavior.
+  return `${VIDRIFT_ORIGIN}/embed/${path}`
 }
 export const vidrift = Object.freeze({ id: 'vidrift', name: 'VidRift (sin verificar)',
   origin: VIDRIFT_ORIGIN, experimental: true, commands: false,
