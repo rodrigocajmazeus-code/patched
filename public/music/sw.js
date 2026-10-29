@@ -1,4 +1,4 @@
-const SHELL = 'onda-shell-v3';
+const SHELL = 'onda-shell-v4';
 const ROOT = new URL('./', self.registration.scope).href;
 const ASSETS = ['index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/onda.svg', 'icons/onda-192.png', 'icons/onda-512.png'].map(p => new URL(p, ROOT).href);
 self.addEventListener('install', event => {
