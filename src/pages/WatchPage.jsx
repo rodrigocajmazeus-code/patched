@@ -663,6 +663,18 @@ function PlayerView({
       </div>
 
 
+      {mode === 'content' && providerId === 'vidrift' && !restrictedFrames && (
+        <section className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center gap-2 border-b border-white/10 bg-[#101b16] px-4 py-2 sm:px-6 lg:px-10" aria-label="Control autorizado de VidRift">
+          <button type="button" onClick={() => bridge.play()} className="min-h-10 rounded-md border border-brand/30 bg-brand/10 px-3 text-xs font-bold text-cream hover:bg-brand/20">
+            ▶ Reproducir (opción 3)
+          </button>
+          <button type="button" onClick={() => bridge.pause()} className="min-h-10 rounded-md border border-white/15 px-3 text-xs font-semibold text-cream hover:bg-white/10">
+            Pausar
+          </button>
+          <span className="text-[11px] text-mist">Comandos publicados por este proveedor; el sonido puede necesitar una interacción dentro del video.</span>
+        </section>
+      )}
+
       {mode === 'content' && <PlaybackTools mediaType={mediaType} id={id} season={season} episode={episode} providerId={providerId} onReload={reloadPlayer} />}
 
       {mode === 'content' && (

@@ -26,7 +26,7 @@ test('VidRift uses only documented TMDB routes and never pretends its dub means 
   for (const request of [{mediaType:'anime',id:1429},{mediaType:'tv',id:1429,season:0,episode:1},{mediaType:'movie',id:'1/../../x'}]) assert.throws(()=>buildVidRiftUrl(request))
   assert.equal(vidrift.audioTracks,null)
   assert.equal(vidrift.subtitleTracks,null)
-  assert.equal(vidrift.commands,false)
+  assert.equal(vidrift.commands,true)
   assert.equal(vidrift.readEvent({data:{type:'player:timeupdate',time:99}}),null)
   assert.equal(getBridgeAdapter(buildEmbedUrl('vidrift','tv',1429,1,1)),vidrift)
   assert.equal(framePolicy('vidrift',true).blocked,true)

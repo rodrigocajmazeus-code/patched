@@ -112,21 +112,29 @@ export function usePlayerBridge({ iframeRef, playerUrl, active = true }) {
   )
 
   const play = useCallback(
-    () => sendCommand([{ type: 'player:play' }, { command: 'play' }]),
-    [sendCommand]
+    () => sendCommand(adapter?.id === 'vidrift'
+      ? [{ type: 'vidrift:play' }]
+      : [{ type: 'player:play' }, { command: 'play' }]),
+    [sendCommand, adapter]
   )
   const pause = useCallback(
-    () => sendCommand([{ type: 'player:pause' }, { command: 'pause' }]),
-    [sendCommand]
+    () => sendCommand(adapter?.id === 'vidrift'
+      ? [{ type: 'vidrift:pause' }]
+      : [{ type: 'player:pause' }, { command: 'pause' }]),
+    [sendCommand, adapter]
   )
   const seek = useCallback(
-    (time) =>
-      sendCommand([
-        { type: 'player:seek', time, currentTime: time, exact: true },
-        { command: 'seek', time, exact: true },
-        { command: 'seek', value: time },
-      ]),
-    [sendCommand]
+    (time) => {
+      if (!Number.isFinite(time) || time < 0) return
+      sendCommand(adapter?.id === 'vidrift'
+        ? [{ type: 'vidrift:resume', currentTime: time }]
+        : [
+          { type: 'player:seek', time, currentTime: time, exact: true },
+          { command: 'seek', time, exact: true },
+          { command: 'seek', value: time },
+        ])
+    },
+    [sendCommand, adapter]
   )
 
   useEffect(() => {
