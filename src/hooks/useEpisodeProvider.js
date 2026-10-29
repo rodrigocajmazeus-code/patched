@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { useProvider } from '../context/ProviderContext.jsx'
+import { providerContinuityScope } from '../player/providerContinuity.js'
 import { applyPreferredOrder, optionsForPreference, selectEpisodeProvider } from '../player/providerSelection.js'
 
 export function useEpisodeProvider(request) {
   const context = useProvider()
   const { providers, playbackPreference, excludedProviders, restrictedFrames } = context
   const providerOptions = optionsForPreference(context.providerOptions, playbackPreference)
-  const scope = JSON.stringify([request.mediaType, request.id, request.season, request.episode,
-    playbackPreference, providers.map(p => p.id), excludedProviders, providerOptions, restrictedFrames])
+  const scope = providerContinuityScope({
+    ...request, playbackPreference, providers, excludedProviders, providerOptions,
+  })
   const [manual, setManual] = useState(null)
   const selection = applyPreferredOrder(selectEpisodeProvider({ request, preference: playbackPreference, providers,
     options: providerOptions, excluded: excludedProviders, restricted: restrictedFrames }), playbackPreference, restrictedFrames)
-  const manualActive = manual?.scope === scope
+  const manualActive = manual?.scope === scope && (!manual.providerId ||
+    selection.candidates.some(candidate => candidate.providerId === manual.providerId && candidate.available))
   const providerId = manualActive ? manual.providerId : selection.providerId
   const setProvider = id => {
     if (id && !selection.candidates.some(c => c.providerId === id && c.available)) return
