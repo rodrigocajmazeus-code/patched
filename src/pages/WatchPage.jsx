@@ -401,7 +401,8 @@ function PlayerView({
   relatedItems,
 }) {
   const containerRef = useRef(null)
-  const { providers, playbackPreference, setPlaybackPreference, restrictedFrames } = useProvider()
+  const { providers, playbackPreference, setPlaybackPreference, restrictedFrames, setRestrictedFrames } = useProvider()
+  const [autoFallback, setAutoFallback] = useState(false)
   const [frameLoaded, setFrameLoaded] = useState(false)
   const [playerReload, setPlayerReload] = useState(0)
   const [frameErrorUrl, setFrameErrorUrl] = useState(null)
@@ -468,7 +469,9 @@ function PlayerView({
   }, [mode, contentPlayerUrl, frameLoaded])
 
   useEffect(() => {
-    if (mode !== 'content' || !providerId) return
+    // Do not silently reopen an ad-supported third-party player on every error.
+    // A new iframe may show a new preroll, so failover requires explicit opt-in.
+    if (mode !== 'content' || !providerId || !autoFallback) return
     const status = bridge.providerStatus
     const token = contentPlayerUrl || `${rescueScope}:${providerId}:invalid`
     const failed = shouldAttemptFallback({
@@ -495,7 +498,7 @@ function PlayerView({
     setPortalNotice(portalMessage({ kind: 'fallback', sourceNumber: PRIMARY_PROVIDER_ORDER.indexOf(candidate) + 1 }))
     setProvider(candidate)
   }, [mode, providerId, contentPlayerUrl, contentRequest.error, bridge.providerStatus,
-      frameErrorUrl, frameTimeoutUrl, frameLoaded, restrictedFrames,
+      frameErrorUrl, frameTimeoutUrl, frameLoaded, restrictedFrames, autoFallback,
       selection.candidates, setProvider, rescueScope])
 
   useEffect(() => {
@@ -651,6 +654,38 @@ function PlayerView({
 
 
       {mode === 'content' && <PlaybackTools mediaType={mediaType} id={id} season={season} episode={episode} providerId={providerId} onReload={reloadPlayer} />}
+
+      {mode === 'content' && (
+        <section className="mx-auto w-full max-w-screen-2xl border-b border-white/10 bg-[#111c16] px-4 py-3 sm:px-6 lg:px-10" aria-label="Protección frente a interrupciones externas">
+          <p className="text-xs font-bold text-cream">Reducir interrupciones del reproductor</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3">
+            <label className="inline-flex items-center gap-2 text-xs text-cream/85">
+              <input type="checkbox" checked={restrictedFrames}
+                onChange={event => {
+                  if (providerId) setProvider(providerId)
+                  setRestrictedFrames(event.target.checked)
+                }} />
+              Probar bloqueo de ventanas emergentes (experimental)
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs text-cream/85">
+              <input type="checkbox" checked={autoFallback} onChange={event => setAutoFallback(event.target.checked)} />
+              Cambiar servidor automáticamente cuando falle
+            </label>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-mist">
+            El bloqueo de ventanas limita algunas acciones del iframe, pero no quita anuncios incluidos en el video.
+            Algunas fuentes pueden negarse a reproducir con este modo; VidRift y VidCloud no son compatibles.
+            Para evitar que se reinicie otro reproductor y vuelva a salir publicidad, el cambio automático está desactivado inicialmente.
+          </p>
+          {restrictedFrames && (
+            <p role="status" className="mt-2 text-xs font-semibold text-amber-200">
+              Protección experimental activa. {['vidrift', 'vidcloud'].includes(providerId)
+                ? 'Esta fuente no funciona con sandbox; elige MovieMaster o FacilitoPlay, o desactiva la protección.'
+                : 'Si la fuente muestra «sandbox no permitido», desactiva esta opción.'}
+            </p>
+          )}
+        </section>
+      )}
 
       {mode === 'content' && (
         <section className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center gap-2 border-b border-white/10 px-4 py-3 sm:px-6 lg:px-10" aria-label="Servidores de reproducción">
