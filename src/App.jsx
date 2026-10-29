@@ -24,6 +24,7 @@ import SeriesPage from './pages/SeriesPage.jsx'
 import WatchPage from './pages/WatchPage.jsx'
 import LiveTvPage from './pages/LiveTvPage.jsx'
 import AudioLabPage from './pages/AudioLabPage.jsx'
+import FreeSourceLabPage from './pages/FreeSourceLabPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import WatchPartyPage from './pages/WatchPartyPage.jsx'
 import WatchPartyRoom from './pages/WatchPartyRoom.jsx'
@@ -54,6 +55,7 @@ export default function App() {
                   <Route path="/tv" element={<LiveTvPage />} />
                   <Route path="/watch/:type/:id" element={<WatchPage />} />
                   <Route path="/laboratorio-audio" element={<AudioLabPage />} />
+                  <Route path="/lab-fuentes" element={<FreeSourceLabPage />} />
                   <Route path="/party" element={<WatchPartyPage />} />
                   <Route path="/party/:code" element={<WatchPartyRoom />} />
                   <Route path="/mylist" element={<MyListPage />} />
