@@ -38,8 +38,9 @@ export default function FreeSourceLabPage() {
   const [ad, setAd] = useState('unknown')
   const [video, setVideo] = useState('unknown')
   const [sound, setSound] = useState('unknown')
+  const [audioLanguage, setAudioLanguage] = useState('unknown')
   const [identity, setIdentity] = useState('unknown')
-  const [clicks, setClicks] = useState('1')
+  const [clicks, setClicks] = useState('unknown')
   const [evidence, setEvidence] = useState(readEvidence)
   const frameRef = useRef(null)
   const source = labSourceFromId(sourceId)
@@ -59,7 +60,7 @@ export default function FreeSourceLabPage() {
     if (!chosenUrl) return
     setActive({ providerId: sourceId, url: chosenUrl, key: currentKey })
     setDemo(false); setLoaded(false); setProviderEvent('')
-    setAd('unknown'); setVideo('unknown'); setSound('unknown'); setIdentity('unknown'); setClicks('1')
+    setAd('unknown'); setVideo('unknown'); setSound('unknown'); setAudioLanguage('unknown'); setIdentity('unknown'); setClicks('unknown')
   }
   useEffect(() => {
     if (!active || active.providerId !== 'stellar') return
@@ -87,7 +88,8 @@ export default function FreeSourceLabPage() {
       when: new Date().toISOString(), source: sourceId, test: sample.id,
       mediaType: request.mediaType, tmdbId: request.id,
       season: request.season ?? null, episode: request.episode ?? null,
-      locale, ad, video, sound, identity, clicks: Number(clicks) || 0,
+      locale, ad, video, sound, audioLanguage, identity,
+      clicks: clicks === 'unknown' ? null : Number(clicks),
       declaredBy: 'Prueba manual del usuario, no certificación del proveedor',
     }
     const next = [...evidence, record].slice(-80)
@@ -203,9 +205,21 @@ export default function FreeSourceLabPage() {
               <option value="unknown">Sin comprobar</option><option value="yes">Sí</option><option value="no">No</option>
             </select>
           </label>)}
+          <label className="grid gap-1 text-xs text-mist">Idioma de audio oído
+            <select value={audioLanguage} onChange={e => setAudioLanguage(e.target.value)}
+              className="min-h-11 rounded-md border border-white/20 bg-[#101814] px-3 text-sm text-cream">
+              <option value="unknown">Sin comprobar</option>
+              <option value="es-419">Español latino</option>
+              <option value="es-ES">Castellano (España)</option>
+              <option value="ja">Japonés</option>
+              <option value="en">Inglés</option>
+              <option value="other">Otro idioma</option>
+            </select>
+          </label>
           <label className="grid gap-1 text-xs text-mist">Clics para comenzar
             <select value={clicks} onChange={e => setClicks(e.target.value)}
               className="min-h-11 rounded-md border border-white/20 bg-[#101814] px-3 text-sm text-cream">
+              <option value="unknown">Sin comprobar</option>
               {[0,1,2,3,4,5,6].map(n => <option key={n} value={n}>{n === 6 ? '6 o más' : n}</option>)}
             </select>
           </label>
