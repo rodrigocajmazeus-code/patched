@@ -119,7 +119,7 @@ export default function FreeSourceLabPage() {
           Muestra pública abierta para pruebas de HLS.js, sin suscripción ni servidor nuestro.
           No contiene SNK ni otras películas comerciales: sirve para validar el motor real en Chrome y Android.
         </p>
-        <button type="button" onClick={() => { closePlayer(); setDemo(value => !value) }}
+        <button type="button" onClick={() => { setActive(null); setLoaded(false); setProviderEvent(''); setDemo(value => !value) }}
           className="mt-3 min-h-11 rounded-md bg-brand px-4 text-xs font-bold text-[#101614]">
           {demo ? 'Cerrar muestra' : 'Reproducir muestra HLS'}
         </button>
