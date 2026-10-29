@@ -93,7 +93,7 @@ export function filterFeaturedChannels(channels, { category = 'destacados', quer
     if (category === 'destacados' && !channel.featured && !normalized) return false
     if (!['destacados', 'todos'].includes(category) && channel.category !== category) return false
     if (normalized) {
-      const label = (channel.name + ' ' + channel.note).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+      const label = channel.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
       if (!label.includes(normalized)) return false
     }
     return true
