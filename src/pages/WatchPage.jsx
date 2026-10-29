@@ -626,7 +626,7 @@ function PlayerView({
           <span className="patched-portal-ink" aria-hidden="true"><span /></span>
           <span>{portalNotice || (providerId && !frameLoaded
             ? portalMessage({ sourceNumber: Math.max(1, PRIMARY_PROVIDER_ORDER.indexOf(providerId) + 1), mediaType })
-            : 'Portal abierto. Comprueba la imagen y el audio.')}</span>
+            : `Reproductor externo abierto · ${providerId ? 'Opción ' + (PRIMARY_PROVIDER_ORDER.indexOf(providerId) + 1) : 'sin fuente'}. El iframe puede mostrar anuncios; el video todavía no está confirmado.`)}</span>
         </div>
       )}
       <div ref={containerRef} className={getAuthorizedMedia(mediaType, id, season, episode) ? "relative mx-auto w-full max-w-screen-2xl bg-black" : "relative mx-auto aspect-video w-full max-w-screen-2xl bg-black"}>
