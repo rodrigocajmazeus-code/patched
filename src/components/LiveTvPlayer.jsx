@@ -64,7 +64,7 @@ export default function LiveTvPlayer({ channel, onSourceError, onSourcePlaying }
 
     const init = async () => {
       try {
-        if (source.type === 'mp4' || video.canPlayType('application/vnd.apple.mpegurl')) {
+        if (source.type === 'mp4') {
           video.src = source.url
           resume()
           return
@@ -72,8 +72,15 @@ export default function LiveTvPlayer({ channel, onSourceError, onSourcePlaying }
         const module = await import('hls.js')
         if (disposed) return
         const Hls = module.default
+        // Chrome can claim native HLS support but fail for some manifests.
+        // Prefer HLS.js when MSE works; fall back to native HLS on Safari.
         if (!Hls.isSupported()) {
-          fail('unsupported', 'hls-not-supported')
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = source.url
+            resume()
+          } else {
+            fail('unsupported', 'hls-not-supported')
+          }
           return
         }
         instance = new Hls({ enableWorker: true })

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { FEATURED_CHANNELS, FEATURED_TV_FILTERS, TV_ACCESS, filterFeaturedChannels } from '../tv/featuredChannels.js'
+import OwnSignalLab from '../components/OwnSignalLab.jsx'
 
 function readSaved() {
   try {
@@ -139,6 +140,8 @@ export default function LiveTvPage() {
         ) : <p className="mt-5 rounded-xl border border-white/10 bg-[#19241e] p-6 text-sm text-mist">
           No hay canales con esos filtros. Desmarca «Portales abiertos o gratuitos» o selecciona «Todos».
         </p>}
+
+        <OwnSignalLab />
 
         <section className="mt-10 rounded-xl border border-white/10 bg-[#17201b] p-5">
           <h2 className="text-lg font-semibold">Por qué no se reproducen aquí ESPN y Disney</h2>
